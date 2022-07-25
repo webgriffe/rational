@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Webgriffe\Rational;
 
+use DivisionByZeroError;
+use Webgriffe\Rational\Exception\OverflowException;
+
 final class Rational
 {
     private function __construct(
@@ -28,11 +31,19 @@ final class Rational
         return new static($value);
     }
 
+    /**
+     * @throws OverflowException
+     * @throws DivisionByZeroError
+     */
     public static function fromFraction(int $num, int $den): static
     {
         return self::normalizeAllAndCreate(0, $num, $den);
     }
 
+    /**
+     * @throws OverflowException
+     * @throws DivisionByZeroError
+     */
     public static function fromWholeAndFraction(int $whole, int $num, int $den): static
     {
         return self::normalizeAllAndCreate($whole, $num, $den);
@@ -73,6 +84,9 @@ final class Rational
         return $this->whole === $other->whole && $this->num === $other->num && $this->den === $other->den;
     }
 
+    /**
+     * @throws OverflowException
+     */
     public function add(Rational $other): static
     {
         //Given two rationals a + b/c and d + e/f (where a, b, c, d, e and f are all integers, c > 0, f > 0, a * b >= 0
@@ -94,16 +108,24 @@ final class Rational
         self::simplify($num, $den);
 
         //Make sure that the sign of the whole part and that of the numerator do not disagree
+        //Since the initial denominators cannot be zero, the new value cannot be zero either. So this call cannot
+        //generate a DivisionByZeroError
         self::normalizeSigns($whole, $num, $den);
 
         return new static(self::toInt($whole), self::toInt($num), self::toInt($den));
     }
 
+    /**
+     * @throws OverflowException
+     */
     public function sub(Rational $other): static
     {
         return $this->add($other->neg());
     }
 
+    /**
+     * @throws OverflowException
+     */
     public function mul(Rational $other): static
     {
         //Given two rationals a + b/c and d + e/f (where a, b, c, d, e and f are all integers, c > 0, f > 0, a * b >= 0
@@ -134,11 +156,18 @@ final class Rational
         return new static(self::toInt($whole), self::toInt($num), self::toInt($den));
     }
 
+    /**
+     * @throws OverflowException
+     */
     public function div(Rational $other): static
     {
         return $this->mul($other->recip());
     }
 
+    /**
+     * @throws OverflowException
+     * @throws DivisionByZeroError
+     */
     public function recip(): static
     {
         //1 / (a + b/c)
@@ -149,28 +178,46 @@ final class Rational
         return self::normalizeAllAndCreate(0, $this->den, self::toInt($newDen));
     }
 
+    /**
+     * @throws OverflowException
+     */
     public function neg(): static
     {
         if ($this->whole === PHP_INT_MIN) {
-            throw new \RuntimeException(
-                'Overflow error: value ' . $this->whole . ' would cause overflow if inverted'
-            );
+            throw new OverflowException(gmp_neg(gmp_init($this->whole)));
         } elseif ($this->num === PHP_INT_MIN) {
-            throw new \RuntimeException(
-                'Overflow error: value ' . $this->num . ' would cause overflow if inverted'
-            );
+            throw new OverflowException(gmp_neg(gmp_init($this->num)));
         }
 
         //No need to normalize again, just invert the whole part and the numerator
         return new static(-$this->whole, -$this->num, $this->den);
     }
 
+    /**
+     * @throws OverflowException
+     */
+    public function abs(): static
+    {
+        if ($this->whole === PHP_INT_MIN) {
+            throw new OverflowException(gmp_neg(gmp_init($this->whole)));
+        } elseif ($this->num === PHP_INT_MIN) {
+            throw new OverflowException(gmp_neg(gmp_init($this->num)));
+        }
+
+        //No need to normalize again, just extract the absolute value of both the whole part and the numerator
+        return new static(abs($this->whole), abs($this->num), $this->den);
+    }
+
+    /**
+     * @throws OverflowException
+     * @throws DivisionByZeroError
+     */
     private static function normalizeAllAndCreate(int $whole, int $num = 0, int $den = 1): self
     {
         //The denominator can only be positive. Obviously it cannot be zero. If it is negative, then change sign to
         //both the numerator and denominator
         if ($den === 0) {
-            throw new \DivisionByZeroError();
+            throw new DivisionByZeroError();
         } elseif ($den < 0) {
             $num = -$num;
             $den = -$den;
@@ -213,12 +260,15 @@ final class Rational
         }
     }
 
+    /**
+     * @throws DivisionByZeroError
+     */
     private static function normalizeSigns(\GMP& $whole, \GMP& $num, \GMP& $den): void
     {
         //The denominator can only be positive. Obviously it cannot be zero. If it is negative, then change sign to
         //both the numerator and denominator
         if (gmp_cmp($den, 0) === 0) {
-            throw new \DivisionByZeroError();
+            throw new DivisionByZeroError();
         } elseif (gmp_cmp($den, 0) < 0) {
             $num = gmp_neg($num);
             $den = gmp_neg($den);
@@ -234,14 +284,15 @@ final class Rational
         }
     }
 
+    /**
+     * @throws OverflowException
+     */
     private static function toInt(\GMP $gmpNumber): int
     {
         if (gmp_cmp(PHP_INT_MIN, $gmpNumber) <= 0 && gmp_cmp($gmpNumber, PHP_INT_MAX) <= 0) {
             return gmp_intval($gmpNumber);
         }
 
-        throw new \RuntimeException(
-            'Overflow error: value ' . gmp_strval($gmpNumber) . ' is too large to be represented by a PHP integer'
-        );
+        throw new OverflowException($gmpNumber);
     }
 }
