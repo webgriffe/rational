@@ -208,6 +208,46 @@ final class Rational
         return new static(abs($this->whole), abs($this->num), $this->den);
     }
 
+    public function format(int $decimals, ?string $decimal_separator = null, ?string $thousands_separator = null): string
+    {
+        if ($decimals < 0) {
+            throw new \RuntimeException('The number of decimals cannot be negative');
+        }
+
+        $whole = $this->whole;
+
+        $rounded = round((float)$this->num / (float)$this->den, $decimals);
+        if ($rounded === 1.0) {
+            ++$whole;
+            $rounded = 0.0;
+        } elseif ($rounded === -1.0) {
+            --$whole;
+            $rounded = 0.0;
+        }
+
+        $sign = '';
+        $decimalPart = '';
+        if ($rounded !== 0.0) {
+            //Remove the initial part, leaving only the row of decimal digits
+            $matches = [];
+            preg_match("/^(-?)0\.(.*)$/", (string) $rounded, $matches);
+            $sign = $matches[1];
+            $decimalPart = $matches[2];
+        }
+
+        $result = number_format($whole, 0, $decimal_separator, $thousands_separator);
+        if ($decimalPart) {
+            $result .= ($decimal_separator ?: '.') . $decimalPart;
+        }
+
+        if ($whole === 0) {
+            //If the whole part has no sign, then the sign of the decimal part dominates
+            $result = $sign . $result;
+        }
+
+        return $result;
+    }
+
     /**
      * @throws OverflowException
      * @throws DivisionByZeroError

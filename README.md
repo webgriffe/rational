@@ -28,9 +28,11 @@ require_once __DIR__ . '/vendor/autoload.php';
 ```
 
 ## Minimum Requirements
-* PHP 8.1 with the gmp-extension installed
+* PHP 8.1 with the GMP extension installed
 
 ## Usage
+Creating rational numbers is possible starting from integers or from the various parts of the rational number.
+Since floats are inherently inaccurate, it was deliberately decided NOT to provide a way to initialize a rational number from a float. Likewise, no method is provided to convert a rational to a float for the same reason. There is a number formatting function which, however, only produces strings.
 ```php
 use Webgriffe\Rational;
 
