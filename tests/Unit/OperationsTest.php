@@ -114,6 +114,38 @@ final class OperationsTest extends TestCase
         $this->assertEquals([8066198333685689747, 9180615090614310253], $c->getFractionPart());
     }
 
+    public function testAbs1()
+    {
+        $a = Rational::fromWhole(3);
+        $b = $a->abs();
+        $this->assertEquals(3, $b->getWholePart());
+        $this->assertEquals([0, 1], $b->getFractionPart());
+    }
+
+    public function testAbs2()
+    {
+        $a = Rational::fromWhole(-17);
+        $b = $a->abs();
+        $this->assertEquals(17, $b->getWholePart());
+        $this->assertEquals([0, 1], $b->getFractionPart());
+    }
+
+    public function testAbs3()
+    {
+        $a = Rational::fromWholeAndFraction(19, 5, 7);
+        $b = $a->abs();
+        $this->assertEquals(19, $b->getWholePart());
+        $this->assertEquals([5, 7], $b->getFractionPart());
+    }
+
+    public function testAbs4()
+    {
+        $a = Rational::fromWholeAndFraction(-23, -3, 11);
+        $b = $a->abs();
+        $this->assertEquals(23, $b->getWholePart());
+        $this->assertEquals([3, 11], $b->getFractionPart());
+    }
+
     public function testChainOfOperations()
     {
         //Creates a zero value
@@ -135,7 +167,9 @@ final class OperationsTest extends TestCase
         $r5 = $r1->add($r2);
         $this->assertTrue($r5->isWhole());
         $this->assertFalse($r5->isPositive());
+        $this->assertFalse($r5->isZeroOrPositive());
         $this->assertTrue($r5->isNegative());
+        $this->assertTrue($r5->isZeroOrNegative());
         $this->assertFalse($r5->isZero());
         $this->assertEquals(-1, $r5->getWholePart());
         $this->assertEquals([0, 1], $r5->getFractionPart());
@@ -144,7 +178,9 @@ final class OperationsTest extends TestCase
         $r6 = $r5->add($r3);
         $this->assertFalse($r6->isWhole());
         $this->assertFalse($r6->isPositive());
+        $this->assertFalse($r6->isZeroOrPositive());
         $this->assertTrue($r6->isNegative());
+        $this->assertTrue($r6->isZeroOrNegative());
         $this->assertFalse($r6->isZero());
         $this->assertEquals(0, $r6->getWholePart());
         $this->assertEquals([-1, 3], $r6->getFractionPart());
@@ -153,7 +189,9 @@ final class OperationsTest extends TestCase
         $r7 = $r2->sub($r6);
         $this->assertFalse($r7->isWhole());
         $this->assertFalse($r7->isPositive());
+        $this->assertFalse($r7->isZeroOrPositive());
         $this->assertTrue($r7->isNegative());
+        $this->assertTrue($r7->isZeroOrNegative());
         $this->assertFalse($r7->isZero());
         $this->assertEquals(-1, $r7->getWholePart());
         $this->assertEquals([-2, 3], $r7->getFractionPart());
@@ -167,7 +205,9 @@ final class OperationsTest extends TestCase
         $r8 = $r7->mul($r4);
         $this->assertFalse($r8->isWhole());
         $this->assertFalse($r8->isPositive());
+        $this->assertFalse($r8->isZeroOrPositive());
         $this->assertTrue($r8->isNegative());
+        $this->assertTrue($r8->isZeroOrNegative());
         $this->assertFalse($r8->isZero());
         $this->assertEquals(-6, $r8->getWholePart());
         $this->assertEquals([-23, 27], $r8->getFractionPart());
@@ -180,7 +220,9 @@ final class OperationsTest extends TestCase
         $r9 = $r8->div($r3);
         $this->assertFalse($r9->isWhole());
         $this->assertFalse($r9->isPositive());
+        $this->assertFalse($r9->isZeroOrPositive());
         $this->assertTrue($r9->isNegative());
+        $this->assertTrue($r9->isZeroOrNegative());
         $this->assertFalse($r9->isZero());
         $this->assertEquals(-10, $r9->getWholePart());
         $this->assertEquals([-5, 18], $r9->getFractionPart());
@@ -193,7 +235,9 @@ final class OperationsTest extends TestCase
         $r10 = $r9->recip();
         $this->assertFalse($r10->isWhole());
         $this->assertFalse($r10->isPositive());
+        $this->assertFalse($r10->isZeroOrPositive());
         $this->assertTrue($r10->isNegative());
+        $this->assertTrue($r10->isZeroOrNegative());
         $this->assertFalse($r10->isZero());
         $this->assertEquals(0, $r10->getWholePart());
         $this->assertEquals([-18, 185], $r10->getFractionPart());
@@ -204,7 +248,9 @@ final class OperationsTest extends TestCase
         $r11 = $r10->add($r1);
         $this->assertFalse($r11->isWhole());
         $this->assertTrue($r11->isPositive());
+        $this->assertTrue($r11->isZeroOrPositive());
         $this->assertFalse($r11->isNegative());
+        $this->assertFalse($r11->isZeroOrNegative());
         $this->assertFalse($r11->isZero());
         $this->assertEquals(0, $r11->getWholePart());
         $this->assertEquals([167, 185], $r11->getFractionPart());
@@ -216,11 +262,26 @@ final class OperationsTest extends TestCase
         $r12 = $r11->sub($r10);
         $this->assertTrue($r12->isWhole());
         $this->assertTrue($r12->isPositive());
+        $this->assertTrue($r12->isZeroOrPositive());
         $this->assertFalse($r12->isNegative());
+        $this->assertFalse($r12->isZeroOrNegative());
         $this->assertFalse($r12->isZero());
         $this->assertEquals(1, $r12->getWholePart());
         $this->assertEquals([0, 1], $r12->getFractionPart());
         $this->assertTrue($r12->equals($r1));
         $this->assertTrue($r1->equals($r12));
+
+        //$r13 = $r12 - $r1: 1 - 1 = 0
+        $r13 = $r12->sub($r1);
+        $this->assertTrue($r13->isWhole());
+        $this->assertFalse($r13->isPositive());
+        $this->assertTrue($r13->isZeroOrPositive());
+        $this->assertFalse($r13->isNegative());
+        $this->assertTrue($r13->isZeroOrNegative());
+        $this->assertTrue($r13->isZero());
+        $this->assertEquals(0, $r13->getWholePart());
+        $this->assertEquals([0, 1], $r13->getFractionPart());
+        $this->assertTrue($r13->equals($r0));
+        $this->assertTrue($r0->equals($r13));
     }
 }
