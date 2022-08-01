@@ -1,9 +1,13 @@
 # Rational - A simple rational number implementation
 
 ## Features
-This implements a numeric data type that represents a rational number, that is a number that is the result of the division of two integer numbers. In order to reduce the possibility of large values encountering overflow issues, an integer "whole" part is added to the fraction. This means that values are stored as mixed numbers of the form `a + b/c`, where a, b and c are all integers.
+This library implements a numeric data type that represents a rational number, that is a number that can be represented as the division of two integer numbers. This includes periodic numbers (such as 0.333333..., which can be easily represented as 1/3) and those numbers that cannot be represented exactly by a floating point type (such as 0.1, which is a periodic number in binary representation, but which can be easily represented by the fraction 1/10).
 
-This library is fundamentally similar to https://github.com/markrogoyski/math-php/blob/master/src/Number/Rational.php, with the main exception being that this implementation uses the GMP extension internally to detect and report overflow issues.
+In order to reduce the possibility of large values triggering overflow issues, an integer "whole" part is added to the fraction. This means that values are stored as mixed numbers of the form `a + b/c`, where a, b and c are all integers.
+
+This library is fundamentally similar to https://github.com/markrogoyski/math-php/blob/master/src/Number/Rational.php, with the main exception being that this implementation uses the GMP extension internally to ensure that no overflow issues can arise with the intermediate computation results.
+
+At the end of each operation, after all simplification and normalization steps, if the final results still do not fit into PHP's standard `integer` type, then an overflow exception is generated.
 
 ## Setup
 Add the library to your `composer.json` file in your project:
@@ -31,8 +35,9 @@ require_once __DIR__ . '/vendor/autoload.php';
 * PHP 8.1 with the GMP extension installed
 
 ## Usage
+Since floating point number are inherently inaccurate, it was deliberately decided NOT to provide a way to initialize a rational number from a float. Likewise, no method is provided to convert a rational to a float for the same reason.
+
 Creating rational numbers is possible starting from integers or from the various parts of the rational number.
-Since floats are inherently inaccurate, it was deliberately decided NOT to provide a way to initialize a rational number from a float. Likewise, no method is provided to convert a rational to a float for the same reason. There is a number formatting function which, however, only produces strings.
 ```php
 use Webgriffe\Rational;
 
@@ -87,6 +92,9 @@ $r10 = $r9->recip();
 //= 167/185
 $r11 = $r10->add($r1);
 
+//Prints 0,903
+echo $r11->format(3, ',', '');
+
 //$r12 = $r11 - $r10: 167/185 - (-18/185)
 //= 167/185 + 18/185
 //= 185/185
@@ -95,12 +103,12 @@ $r12 = $r11->sub($r10);
 ```
 
 ## Internal working
-The library stores all components of the rational number as PHP integers. This is to make it easier to store these values to databases and other media where arbitrary length integers may be problematic.
+The library stores all components of the rational number as PHP integers. This is to make it easier to store these values to databases and other media where storing arbitrary-length integers may be problematic.
 Intermediate values are handled through the PHP GMP library in order to avoid overflow issues until the final results are computed. If, however, the final result of each operation exceeds the range of PHP integers, the library reports an overflow error.
 
 Immediately after creation and after every operation, each value is normalized. The purpose of this is to reduce the magnitude of the values stored internally and to make it easier to compare rational numbers and to extract other useful information.
 
-In the context of this library which stores values as `a + b/c`, a normalized value is one where `c > 0`, where `a * b >= 0` (they do not disagree in sign, though one or both can be zero), where `GCD(|b|, c) == 1` (i.e. the fraction `b/c` is simplified) and `|a| < b` (i.e. it is a proper fraction).
+In the context of this library which stores values as `a + b/c`, a normalized value is one where `c > 0`, where `a * b >= 0` (i.e. they do not disagree in sign, though one or both can be zero), where `GCD(|b|, c) == 1` (i.e. the fraction `b/c` is simplified) and `|a| < b` (i.e. it is a proper fraction).
 
 ## Overflow
 At the end of every operation the library converts the intermediate GMP values back to integers. If these values are too large or too small to fit into an integer, a OverflowException is thrown. It is the user's responsibility to catch the exception and act accordingly.

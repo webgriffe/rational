@@ -347,6 +347,11 @@ final class Rational
             return gmp_intval($gmpNumber);
         }
 
+        //It would be nice to suggest the rational number that can still be represented with integers that is closest
+        //to the value that caused the error . Perhaps this can be calculated by computing the continued fraction of
+        //the value that generated the overflow and stopping at the last fraction that can still be represented with
+        //integers.
+        //@see https://en.wikipedia.org/wiki/Continued_fraction
         throw new OverflowException($gmpNumber);
     }
 }
