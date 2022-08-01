@@ -69,9 +69,19 @@ final class Rational
         return $this->whole > 0 || $this->num > 0;
     }
 
+    public function isZeroOrPositive(): bool
+    {
+        return !$this->isNegative();
+    }
+
     public function isNegative(): bool
     {
         return $this->whole < 0 || $this->num < 0;
+    }
+
+    public function isZeroOrNegative(): bool
+    {
+        return !$this->isPositive();
     }
 
     public function isWhole(): bool
@@ -81,6 +91,8 @@ final class Rational
 
     public function equals(Rational $other): bool
     {
+        //Values are always stored as fully simplified, so there should be no issue like comparing 1/2 to 2/4, as the
+        //2/4 would have been simplified to 1/2. So just compare the single values.
         return $this->whole === $other->whole && $this->num === $other->num && $this->den === $other->den;
     }
 
@@ -92,8 +104,8 @@ final class Rational
         //Given two rationals a + b/c and d + e/f (where a, b, c, d, e and f are all integers, c > 0, f > 0, a * b >= 0
         //and d * e >= 0), their sum is given by:
         //a + b/c + d + e/f
-        //= (a + d) + b/c + e/f
-        //= (a + d) + (b*f + e*c)/(c*e)
+        //= a + d + b/c + e/f
+        //= a + d + (b*f + e*c)/(c*e)
         $whole = gmp_add($this->whole, $other->whole);
         $num = gmp_add(
             gmp_mul($this->num, $other->den),
@@ -208,20 +220,20 @@ final class Rational
         return new static(abs($this->whole), abs($this->num), $this->den);
     }
 
-    public function format(int $decimals, ?string $decimal_separator = null, ?string $thousands_separator = null): string
+    public function format(int $maxDecimals, string $decimalSeparator = '.', string $thousandsSeparator = ','): string
     {
-        if ($decimals < 0) {
+        if ($maxDecimals < 0) {
             throw new \RuntimeException('The number of decimals cannot be negative');
         }
 
         $whole = $this->whole;
 
-        $rounded = round((float)$this->num / (float)$this->den, $decimals);
-        if ($rounded === 1.0) {
-            ++$whole;
-            $rounded = 0.0;
-        } elseif ($rounded === -1.0) {
-            --$whole;
+        $rounded = round((float)$this->num / (float)$this->den, $maxDecimals);
+        //If the fractional part is very close to +1 or -1, then the rounding operation could force it into positive or
+        //negative unity. In that case add that to the whole part
+        if ($rounded === 1.0 || $rounded === -1.0) {
+            //Casting to int is safe since we know that this float represents an integer.
+            $whole += (int) $rounded;
             $rounded = 0.0;
         }
 
@@ -229,15 +241,17 @@ final class Rational
         $decimalPart = '';
         if ($rounded !== 0.0) {
             //Remove the initial part, leaving only the row of decimal digits
+            //Starting from PHP 8.0, float-to-string casts are locale-independent. So we can be sure that the resulting
+            //string uses the period as the decimal separator and no thousands separator
             $matches = [];
             preg_match("/^(-?)0\.(.*)$/", (string) $rounded, $matches);
             $sign = $matches[1];
             $decimalPart = $matches[2];
         }
 
-        $result = number_format($whole, 0, $decimal_separator, $thousands_separator);
+        $result = number_format($whole, 0, $decimalSeparator, $thousandsSeparator);
         if ($decimalPart) {
-            $result .= ($decimal_separator ?: '.') . $decimalPart;
+            $result .= $decimalSeparator . $decimalPart;
         }
 
         if ($whole === 0) {
