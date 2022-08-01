@@ -92,4 +92,10 @@ final class FormatTest extends TestCase
         $r = Rational::fromWholeAndFraction(-1234567, -2, 3);
         $this->assertSame('-1,234,568', $r->format(0));
     }
+
+    public function testFormat15()
+    {
+        $r = Rational::fromFraction(167, 185);
+        $this->assertSame('0,903', $r->format(3, ',', ''));
+    }
 }
