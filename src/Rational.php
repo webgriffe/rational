@@ -12,8 +12,8 @@ final class Rational
     private function __construct(
         private readonly int $whole,
         private readonly int $num = 0,
-        private readonly int $den = 1)
-    {
+        private readonly int $den = 1,
+    ) {
     }
 
     public static function zero(): static
@@ -89,7 +89,7 @@ final class Rational
         return $this->num === 0;
     }
 
-    public function equals(Rational $other): bool
+    public function equals(self $other): bool
     {
         //Values are always stored as fully simplified, so there should be no issue like comparing 1/2 to 2/4, as the
         //2/4 would have been simplified to 1/2. So just compare the single values.
@@ -99,7 +99,7 @@ final class Rational
     /**
      * @throws OverflowException
      */
-    public function add(Rational $other): static
+    public function add(self $other): static
     {
         //Given two rationals a + b/c and d + e/f (where a, b, c, d, e and f are all integers, c > 0, f > 0, a * b >= 0
         //and d * e >= 0), their sum is given by:
@@ -130,7 +130,7 @@ final class Rational
     /**
      * @throws OverflowException
      */
-    public function sub(Rational $other): static
+    public function sub(self $other): static
     {
         return $this->add($other->neg());
     }
@@ -138,7 +138,7 @@ final class Rational
     /**
      * @throws OverflowException
      */
-    public function mul(Rational $other): static
+    public function mul(self $other): static
     {
         //Given two rationals a + b/c and d + e/f (where a, b, c, d, e and f are all integers, c > 0, f > 0, a * b >= 0
         //and d * e >= 0), their product is given by:
@@ -171,7 +171,7 @@ final class Rational
     /**
      * @throws OverflowException
      */
-    public function div(Rational $other): static
+    public function div(self $other): static
     {
         return $this->mul($other->recip());
     }
