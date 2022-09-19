@@ -102,6 +102,21 @@ echo $r11->format(3, ',', '');
 $r12 = $r11->sub($r10);
 ```
 
+### Extending
+
+It is possible to extend the `Rational` class to seamlessly use it in application-specific contexts.
+
+For example, if one wants to use the `Rational` class to represent prices or amounts of money, it is possible to define a `Money` class that extends `Rational`:
+
+```php
+use Webgriffe\Rational;
+
+final class Money extends Rational {
+}
+```
+
+All methods are type-hinted in such a way that all results will be identified as having the type of the first operand of each operation. So, for example, if a `Money` object is added to another `Money`, the result will be of type `Money` as well.
+
 ## Internal working
 The library stores all components of the rational number as PHP integers. This is to make it easier to store these values to databases and other media where storing arbitrary-length integers may be problematic.
 Intermediate values are handled through the PHP GMP library in order to avoid overflow issues until the final results are computed. If, however, the final result of each operation exceeds the range of PHP integers, the library reports an overflow error.

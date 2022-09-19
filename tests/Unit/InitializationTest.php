@@ -119,4 +119,22 @@ final class InitializationTest extends TestCase
         $this->assertEquals(2, $q->getWholePart());
         $this->assertEquals([3, 8], $q->getFractionPart());
     }
+
+    public function testExtend()
+    {
+        //Define a class that extends Rational
+        $s = $this->getMockBuilder(Rational::class)->onlyMethods([])->disableOriginalConstructor()->getMock();
+
+        //Use one of the static methods to get an instance of that class
+        $c = $s::one();
+
+        //Do an operation on that class that extends Rational
+        $one = Rational::one();
+        $result = $c->add($one);
+
+        //Check that the result is the same type as the initial object
+        $this->assertInstanceOf(Rational::class, $result);
+        $this->assertEquals(get_class($c), get_class($result));
+        $this->assertNotEquals(get_class($one), get_class($result));
+    }
 }
