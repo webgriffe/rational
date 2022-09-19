@@ -7,7 +7,7 @@ namespace Webgriffe\Rational;
 use DivisionByZeroError;
 use Webgriffe\Rational\Exception\OverflowException;
 
-final class Rational
+class Rational
 {
     private function __construct(
         private readonly int $whole,
