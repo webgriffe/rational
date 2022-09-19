@@ -102,7 +102,8 @@ echo $r11->format(3, ',', '');
 $r12 = $r11->sub($r10);
 ```
 
-### Extending
+## Usage in an application
+### Extension
 
 It is possible to extend the `Rational` class to seamlessly use it in application-specific contexts.
 
@@ -116,6 +117,31 @@ final class Money extends Rational {
 ```
 
 All methods are type-hinted in such a way that all results will be identified as having the type of the first operand of each operation. So, for example, if a `Money` object is added to another `Money`, the result will be of type `Money` as well.
+
+### Containment
+
+Of course, it is also possible to encapsulate instances of `Rational` inside other classes:
+
+```php
+use Webgriffe\Rational;
+
+class Money {
+    public function __construct(
+        private readonly Rational $value
+    ) {
+    }
+
+    public function add(self $other): static {
+        return new static($this->value->add($other->value));
+    }
+    
+    ...
+}
+```
+
+This has the benefit that one can control precisely what operations are allowed and what are not. For example, for a class that represents amounts of money, the reciprocal operation may not make much sense. Likewise, multiplying or dividing an amount of money by another amount of money may not be sensible.
+
+The drawback is that one has to manually redefine all the desired arithmetic operations to work on the contained `Rational` value.
 
 ## Internal working
 The library stores all components of the rational number as PHP integers. This is to make it easier to store these values to databases and other media where storing arbitrary-length integers may be problematic.
