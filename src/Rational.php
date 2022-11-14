@@ -220,10 +220,18 @@ class Rational
         return new static(abs($this->whole), abs($this->num), $this->den);
     }
 
-    public function format(int $maxDecimals, string $decimalSeparator = '.', string $thousandsSeparator = ','): string
-    {
-        if ($maxDecimals < 0) {
-            throw new \RuntimeException('The number of decimals cannot be negative');
+    public function format(
+        int $maxDecimals,
+        int $minDecimals = 0,
+        string $decimalSeparator = '.',
+        string $thousandsSeparator = ','
+    ): string {
+        if ($minDecimals < 0) {
+            throw new \InvalidArgumentException('The number of decimals cannot be negative');
+        }
+
+        if ($maxDecimals < $minDecimals) {
+            throw new \InvalidArgumentException('The minimum number of decimals cannot be larger than the maximum number of decimals');
         }
 
         $whole = $this->whole;
@@ -249,6 +257,9 @@ class Rational
             $decimalPart = $matches[2];
         }
 
+        $decimalPart = str_pad($decimalPart, $minDecimals, '0', STR_PAD_RIGHT);
+
+        //This is used only to format the integer part with the thousand separator, if any
         $result = number_format($whole, 0, $decimalSeparator, $thousandsSeparator);
         if ($decimalPart) {
             $result .= $decimalSeparator . $decimalPart;

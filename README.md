@@ -93,7 +93,10 @@ $r10 = $r9->recip();
 $r11 = $r10->add($r1);
 
 //Prints 0,903
-echo $r11->format(3, ',', '');
+echo $r11->format(3, 0, ',', '');
+
+//Forces 2 decimals and prints 0.90. Useful when dealing with prices
+echo $r11->format(2, 2, '.', '');
 
 //$r12 = $r11 - $r10: 167/185 - (-18/185)
 //= 167/185 + 18/185

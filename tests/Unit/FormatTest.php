@@ -9,6 +9,24 @@ use Webgriffe\Rational\Rational;
 
 final class FormatTest extends TestCase
 {
+    public function testNegativeNumberOfDecimalsIsNotAllowed()
+    {
+        $r = Rational::fromWhole(1);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The number of decimals cannot be negative');
+        $r->format(1, -1);
+    }
+
+    public function testFormatChecksThatFormatIsSensible()
+    {
+        $r = Rational::fromWhole(1);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('The minimum number of decimals cannot be larger than the maximum number of decimals');
+        $r->format(1, 2);
+    }
+
     public function testFormat1()
     {
         $r = Rational::fromWhole(5);
@@ -36,7 +54,7 @@ final class FormatTest extends TestCase
     public function testFormat5()
     {
         $r = Rational::fromWhole(1234567);
-        $this->assertSame('1 234 567', $r->format(0, '.', ' '));
+        $this->assertSame('1 234 567', $r->format(0, 0, '.', ' '));
     }
 
     public function testFormat6()
@@ -96,6 +114,24 @@ final class FormatTest extends TestCase
     public function testFormat15()
     {
         $r = Rational::fromFraction(167, 185);
-        $this->assertSame('0,903', $r->format(3, ',', ''));
+        $this->assertSame('0,903', $r->format(3, 0, ',', ''));
+    }
+
+    public function testFormatIntegerWithForcedNumberOfDecimals()
+    {
+        $r = Rational::fromWhole(5);
+        $this->assertSame('5.00', $r->format(2, 2));
+    }
+
+    public function testFormatDecimalWithForcedNumberOfDecimals()
+    {
+        $r = Rational::fromWholeAndFraction(5, 1, 10);
+        $this->assertSame('5.10', $r->format(2, 2));
+    }
+
+    public function testFormatRationalWithMinAndMaxDecimalValues()
+    {
+        $r = Rational::fromWholeAndFraction(5, 2, 3);
+        $this->assertSame('5.667', $r->format(3, 2));
     }
 }
