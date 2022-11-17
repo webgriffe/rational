@@ -14,7 +14,7 @@ Add the library to your `composer.json` file in your project:
 ```
 {
   "require": {
-      "webgriffe/rational": "^1.0"
+      "webgriffe/rational": "^2.0"
   }
 }
 ```
