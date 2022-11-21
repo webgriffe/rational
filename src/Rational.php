@@ -54,6 +54,9 @@ class Rational
         return $this->whole;
     }
 
+    /**
+     * @return int[]
+     */
     public function getFractionPart(): array
     {
         return [$this->num, $this->den];
