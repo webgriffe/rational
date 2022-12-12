@@ -134,4 +134,10 @@ final class FormatTest extends TestCase
         $r = Rational::fromWholeAndFraction(5, 2, 3);
         $this->assertSame('5.667', $r->format(3, 2));
     }
+
+    public function testFormatCurrency()
+    {
+        $r = Rational::fromWholeAndFraction(5, 2, 3);
+        $this->assertSame('5,67 €', $r->formatCurrencyByNumberFormatter(new \NumberFormatter('it_IT', \NumberFormatter::CURRENCY), 'EUR'));
+    }
 }

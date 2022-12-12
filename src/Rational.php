@@ -6,6 +6,7 @@ namespace Webgriffe\Rational;
 
 use DivisionByZeroError;
 use Webgriffe\Rational\Exception\OverflowException;
+use NumberFormatter;
 
 class Rational
 {
@@ -223,6 +224,16 @@ class Rational
         return new static(abs($this->whole), abs($this->num), $this->den);
     }
 
+    public function formatByNumberFormatter(NumberFormatter $formatter, int $type): string
+    {
+        return $formatter->format($this->getApproximateFloat(), $type);
+    }
+
+    public function formatCurrencyByNumberFormatter(NumberFormatter $formatter, string $ISO4217CurrencyCode): string
+    {
+        return $formatter->formatCurrency($this->getApproximateFloat(), $ISO4217CurrencyCode);
+    }
+
     public function format(
         int $maxDecimals,
         int $minDecimals = 0,
@@ -367,5 +378,14 @@ class Rational
         //integers.
         //@see https://en.wikipedia.org/wiki/Continued_fraction
         throw new OverflowException($gmpNumber);
+    }
+
+    /**
+     * This is only intended to be used internally. It must not be made public.
+     * If you need to convert a rational to a float, you're probably doing something wrong
+     */
+    private function getApproximateFloat(): float
+    {
+        return $this->whole + (((float)$this->num) / $this->den);
     }
 }
