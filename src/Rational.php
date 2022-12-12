@@ -224,7 +224,7 @@ class Rational
         return new static(abs($this->whole), abs($this->num), $this->den);
     }
 
-    public function formatByNumberFormatter(NumberFormatter $formatter, int $type): string
+    public function formatByNumberFormatter(NumberFormatter $formatter, ?int $type = null): string
     {
         return $formatter->format($this->getApproximateFloat(), $type);
     }
