@@ -100,6 +100,22 @@ class Rational
         return $this->whole === $other->whole && $this->num === $other->num && $this->den === $other->den;
     }
 
+    public function compare(self $other): int
+    {
+        //Compare the whole parts. If they differ, then we already have the result of the comparison.
+        //If they are equal, then we have to compare the fractions. To do so, we have to ensure that we're using the
+        //same denominator. We take advantage of the fact that denominators are always positive, so we can write:
+        //  a/b <? c/d
+        //Multiply and divide the left term by "d" and the right term by "b":
+        //  a*d/b*d <? c*b/b*d
+        //We know that b and d are both positive, so b*d is also positive. Therefore we can safely divide both sides by
+        //b*d without risk of division by zero or altering the result of the comparison:
+        //  a*d <? c*b
+        //This allows us to compare the fractions without divisions, thus avoiding possible rounding errors.
+        return ($this->whole <=> $other->whole) ?:
+            gmp_cmp(gmp_mul($this->num, $other->den), gmp_mul($other->num, $this->den));
+    }
+
     /**
      * @throws OverflowException
      */

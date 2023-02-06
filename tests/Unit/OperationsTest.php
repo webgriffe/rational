@@ -284,4 +284,92 @@ final class OperationsTest extends TestCase
         $this->assertTrue($r13->equals($r0));
         $this->assertTrue($r0->equals($r13));
     }
+
+    public function testCompare1()
+    {
+        $r1 = Rational::fromWholeAndFraction(4, 7, 10);
+        $r2 = Rational::fromWholeAndFraction(3, 11, 13);
+        $this->assertGreaterThan(0, $r1->compare($r2));
+        $this->assertLessThan(0, $r2->compare($r1));
+    }
+
+    public function testCompare2()
+    {
+        $r1 = Rational::fromWholeAndFraction(5, 31, 97);
+        $r2 = Rational::fromWholeAndFraction(5, 3, 4);
+        $this->assertLessThan(0, $r1->compare($r2));
+        $this->assertGreaterThan(0, $r2->compare($r1));
+    }
+
+    public function testCompare3()
+    {
+        $r1 = Rational::fromWholeAndFraction(1, 3, 4);
+        $r2 = Rational::fromWholeAndFraction(-5, -5, 6);
+        $this->assertGreaterThan(0, $r1->compare($r2));
+        $this->assertLessThan(0, $r2->compare($r1));
+    }
+
+    public function testCompare4()
+    {
+        $r1 = Rational::fromWholeAndFraction(-1, -3, 4);
+        $r2 = Rational::fromWholeAndFraction(-1, -5, 6);
+        $this->assertGreaterThan(0, $r1->compare($r2));
+        $this->assertLessThan(0, $r2->compare($r1));
+    }
+
+    public function testCompare5()
+    {
+        $r1 = Rational::fromWholeAndFraction(0, -3, 4);
+        $r2 = Rational::fromWholeAndFraction(0, -1, 3);
+        $this->assertLessThan(0, $r1->compare($r2));
+        $this->assertGreaterThan(0, $r2->compare($r1));
+    }
+
+    public function testCompare6()
+    {
+        $r1 = Rational::fromWholeAndFraction(0, -3, 4);
+        $r2 = Rational::fromWholeAndFraction(0, 1, 3);
+        $this->assertLessThan(0, $r1->compare($r2));
+        $this->assertGreaterThan(0, $r2->compare($r1));
+    }
+
+    public function testCompare7()
+    {
+        $r1 = Rational::fromWholeAndFraction(0, 0, 1);
+        $r2 = Rational::fromWholeAndFraction(0, 0, 1);
+        $this->assertEquals(0, $r1->compare($r2));
+        $this->assertEquals(0, $r2->compare($r1));
+        $this->assertTrue($r1->equals($r2));
+        $this->assertTrue($r2->equals($r1));
+    }
+
+    public function testCompare8()
+    {
+        $r1 = Rational::fromWholeAndFraction(0, 1, 3);
+        $r2 = Rational::fromWholeAndFraction(0, 1, 3);
+        $this->assertEquals(0, $r1->compare($r2));
+        $this->assertEquals(0, $r2->compare($r1));
+        $this->assertTrue($r1->equals($r2));
+        $this->assertTrue($r2->equals($r1));
+    }
+
+    public function testCompare9()
+    {
+        $r1 = Rational::fromWholeAndFraction(9, 5, 7);
+        $r2 = Rational::fromWholeAndFraction(9, 5, 7);
+        $this->assertEquals(0, $r1->compare($r2));
+        $this->assertEquals(0, $r2->compare($r1));
+        $this->assertTrue($r1->equals($r2));
+        $this->assertTrue($r2->equals($r1));
+    }
+
+    public function testCompare10()
+    {
+        $r1 = Rational::fromWholeAndFraction(-4, -2, 5);
+        $r2 = Rational::fromWholeAndFraction(-4, -2, 5);
+        $this->assertEquals(0, $r1->compare($r2));
+        $this->assertEquals(0, $r2->compare($r1));
+        $this->assertTrue($r1->equals($r2));
+        $this->assertTrue($r2->equals($r1));
+    }
 }
