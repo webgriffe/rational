@@ -117,7 +117,7 @@ class Rational
         //  a/b <? c/d
         //We know that b and d are both positive, so b*d is also positive. Multiply both sides by "b*d":
         //  a*b*d/b <? c*b*d/d
-        //Since b and d non-zero, we can simplify:
+        //Since b and d are non-zero, we can simplify:
         //  a*d <? c*b
         //This allows us to compare the fractions without divisions, thus avoiding possible rounding errors.
         return ($this->whole <=> $other->whole) ?:
@@ -218,7 +218,7 @@ class Rational
         //= c/(a*c + b)
         $newDen = gmp_add(gmp_mul($this->whole, $this->den), $this->num);
 
-        return self::normalizeAllAndCreate(0, $this->den, self::toInt($newDen));
+        return self::normalizeAllAndCreate(0, $this->den, $newDen);
     }
 
     /**
@@ -427,7 +427,7 @@ class Rational
      * @throws OverflowException
      * @throws DivisionByZeroError
      */
-    private static function normalizeAllAndCreate(int $whole, int $num = 0, int $den = 1): self
+    private static function normalizeAllAndCreate(int|\GMP $whole, int|\GMP $num = 0, int|\GMP $den = 1): self
     {
         //The denominator can only be positive. Obviously it cannot be zero. If it is negative, then change sign to
         //both the numerator and denominator
@@ -437,10 +437,6 @@ class Rational
             $num = -$num;
             $den = -$den;
         }
-
-        $whole = gmp_init($whole);
-        $num = gmp_init($num);
-        $den = gmp_init($den);
 
         self::extractWholePartFromFraction($whole, $num, $den);
 
@@ -453,62 +449,68 @@ class Rational
         return new static(self::toInt($whole), self::toInt($num), self::toInt($den));
     }
 
-    private static function extractWholePartFromFraction(\GMP& $whole, \GMP& $num, \GMP& $den): void
+    private static function extractWholePartFromFraction(int|\GMP& $whole, int|\GMP& $num, int|\GMP& $den): void
     {
         //If the fraction is an improper fraction (|num| > den), then extract the whole part of that and add it to the
         //actual whole part
-        $additionalWholePart = gmp_div($num, $den);
-        if (gmp_cmp($additionalWholePart, 0) !== 0) {
-            $whole = gmp_add($whole, $additionalWholePart);
-            $num = gmp_sub($num, gmp_mul($additionalWholePart, $den));
+        $additionalWholePart = (int) ($num / $den);
+        if ($additionalWholePart != 0) {
+            $whole += $additionalWholePart;
+            $num -= ($additionalWholePart * $den);
         }
     }
 
-    private static function simplify(\GMP& $num, \GMP& $den): void
+    private static function simplify(int|\GMP& $num, int|\GMP& $den): void
     {
         //Simplify the fraction, if possible
-        $gcd = gmp_gcd($num, $den);
-        if (gmp_cmp($gcd, 1) > 0) {
-            $num = gmp_div($num, $gcd);
-            $den = gmp_div($den, $gcd);
+        if (is_int($num) && is_int($den)) {
+            $gcd = self::gcdInt($num, $den);
+        } else {
+            $gcd = gmp_gcd($num, $den);
+        }
+
+        if ($gcd > 1) {
+            $num /= $gcd;
+            $den /= $gcd;
         }
     }
 
     /**
      * @throws DivisionByZeroError
      */
-    private static function normalizeSigns(\GMP& $whole, \GMP& $num, \GMP& $den): void
+    private static function normalizeSigns(int|\GMP& $whole, int|\GMP& $num, int|\GMP& $den): void
     {
         //The denominator can only be positive. Obviously it cannot be zero.
         //If it is negative, then change sign to both the numerator and denominator so that the overall value does not
         //change.
-        $denSign = gmp_cmp($den, 0);
-        if ($denSign === 0) {
+        if ($den == 0) {
             throw new DivisionByZeroError();
-        } elseif ($denSign < 0) {
-            $num = gmp_neg($num);
-            $den = gmp_neg($den);
+        } elseif ($den < 0) {
+            $num = -$num;
+            $den = -$den;
         }
 
         //Make sure that the signs of $whole and $num agree.
-        $wholeSign = gmp_cmp($whole, 0);
-        $numSign = gmp_cmp($num, 0);
-        if ($wholeSign > 0 && $numSign < 0) {
-            $whole = gmp_sub($whole, 1);
-            $num = gmp_add($num, $den);
-        } elseif ($wholeSign < 0 && $numSign > 0) {
-            $whole = gmp_add($whole, 1);
-            $num = gmp_sub($num, $den);
+        if ($whole > 0 && $num < 0) {
+            $whole -= 1;
+            $num += $den;
+        } elseif ($whole < 0 && $num > 0) {
+            $whole += 1;
+            $num -= $den;
         }
     }
 
     /**
      * @throws OverflowException
      */
-    private static function toInt(\GMP $gmpNumber): int
+    private static function toInt(int|\GMP $number): int
     {
-        if (gmp_cmp(PHP_INT_MIN, $gmpNumber) <= 0 && gmp_cmp($gmpNumber, PHP_INT_MAX) <= 0) {
-            return gmp_intval($gmpNumber);
+        if (is_int($number)) {
+            return $number;
+        }
+
+        if (gmp_cmp(PHP_INT_MIN, $number) <= 0 && gmp_cmp($number, PHP_INT_MAX) <= 0) {
+            return gmp_intval($number);
         }
 
         //It would be nice to suggest the rational number that can still be represented with integers that is closest
@@ -516,7 +518,18 @@ class Rational
         //the value that generated the overflow and stopping at the last fraction that can still be represented with
         //integers.
         //@see https://en.wikipedia.org/wiki/Continued_fraction
-        throw new OverflowException($gmpNumber);
+        throw new OverflowException($number);
+    }
+
+    private static function gcdInt(int $a, int $b): int
+    {
+        while ($b != 0) {
+            $m = $a % $b;
+            $a = $b;
+            $b = $m;
+        }
+
+        return abs($a);
     }
 
     /**
@@ -525,6 +538,6 @@ class Rational
      */
     private function getApproximateFloat(): float
     {
-        return $this->whole + (((float)$this->num) / $this->den);
+        return $this->whole + (((float) $this->num) / $this->den);
     }
 }
