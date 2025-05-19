@@ -204,7 +204,29 @@ class Rational
      */
     public function div(self $other): static
     {
-        return $this->mul($other->recip());
+        //Given two rationals a + b/c and d + e/f (where a, b, c, d, e and f are all integers, c > 0, f > 0, a * b >= 0
+        //and d * e >= 0)
+        //(a + b/c) / (d + e/f)
+        //= (a + b/c) / ((f*d + e)/f)
+        //= (a + b/c) * (f/(f*d + e))
+        //= (a*c + b)/c * f/(f*d + e)
+        //= (a*c + b)*f / (f*d + e)*c
+        $newNum = gmp_mul(
+            gmp_add(
+                gmp_mul($this->whole, $this->den),  //a*c
+                $this->num,                         //b
+            ),
+            $other->den,                            //f
+        );
+        $newDen = gmp_mul(
+            gmp_add(
+                gmp_mul($other->whole, $other->den),    //f*d
+                $other->num,                            //e
+            ),
+            $this->den,                                 //c
+        );
+
+        return self::normalizeAllAndCreate(0, $newNum, $newDen);
     }
 
     /**
