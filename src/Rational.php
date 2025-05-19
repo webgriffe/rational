@@ -136,13 +136,13 @@ class Rational
         //and d * e >= 0), their sum is given by:
         //a + b/c + d + e/f
         //= a + d + b/c + e/f
-        //= a + d + (b*f + e*c)/(c*e)
-        $whole = gmp_add($this->whole, $other->whole);
+        //= a + d + (b*f + e*c)/(c*f)
+        $whole = gmp_add($this->whole, $other->whole);  //a+d
         $num = gmp_add(
-            gmp_mul($this->num, $other->den),
-            gmp_mul($other->num, $this->den),
+            gmp_mul($this->num, $other->den),           //b*f
+            gmp_mul($other->num, $this->den),           //e*c
         );
-        $den = gmp_mul($this->den, $other->den);
+        $den = gmp_mul($this->den, $other->den);        //c*f
 
         //The fractional part may be an improper fraction. If so, extract the whole part from it
         self::extractWholePartFromFraction($whole, $num, $den);
@@ -176,20 +176,20 @@ class Rational
         //(a + b/c) * (d + e/f)
         //= a*d + (a*e)/f + (d*b)/c + (b*e)/(c*f)
         //= a*d + ((a*e*c) + (d*b*f) + (b*e))/(c*f)
-        $whole = gmp_mul($this->whole, $other->whole);
+        $whole = gmp_mul($this->whole, $other->whole);  //a*d
         $num = gmp_add(
             gmp_add(
-                gmp_mul(gmp_mul($this->whole, $other->num), $this->den),
-                gmp_mul(gmp_mul($other->whole, $this->num), $other->den),
+                gmp_mul(gmp_mul($this->whole, $other->num), $this->den),    //a*e*c
+                gmp_mul(gmp_mul($other->whole, $this->num), $other->den),   //d*b*f
             ),
-            gmp_mul($this->num, $other->num),
+            gmp_mul($this->num, $other->num),           //b*e
         );
-        $den = gmp_mul($this->den, $other->den);
+        $den = gmp_mul($this->den, $other->den);        //c*f
 
         //If the starting data had its signs normalized, then here we can be sure that the signs are correct too.
 
         //The fractional part may be an improper fraction. If so, extract the whole part from it. Notice that this may
-        //cause the whole part and/or the numerator to change from signed to zero or vice versa, but it cannot cause
+        //cause the whole part and/or the numerator to change from nonzero to zero or vice versa, but it cannot cause
         //either of these to invert its sign. So the signs remain consistent after this operation.
         self::extractWholePartFromFraction($whole, $num, $den);
 
@@ -534,7 +534,8 @@ class Rational
 
     /**
      * This is only intended to be used internally. It must NOT be made public.
-     * If you need to convert a rational to a float, you're probably doing something wrong
+     * If you need to convert a rational to a float, you're probably doing something wrong.
+     * Consider using one of the formatting functions instead
      */
     private function getApproximateFloat(): float
     {
