@@ -7,6 +7,8 @@ namespace Webgriffe\Rational;
 use DivisionByZeroError;
 use Webgriffe\Rational\Exception\OverflowException;
 use NumberFormatter;
+use Webgriffe\Rational\Exception\UnderflowException;
+use Webmozart\Assert\Assert;
 
 class Rational
 {
@@ -155,7 +157,7 @@ class Rational
         //generate a DivisionByZeroError
         self::normalizeSigns($whole, $num, $den);
 
-        return new static(self::toInt($whole), self::toInt($num), self::toInt($den));
+        return self::createNew($whole, $num, $den);
     }
 
     /**
@@ -196,7 +198,7 @@ class Rational
         //Simplify the fraction
         self::simplify($num, $den);
 
-        return new static(self::toInt($whole), self::toInt($num), self::toInt($den));
+        return self::createNew($whole, $num, $den);
     }
 
     /**
@@ -468,7 +470,7 @@ class Rational
         //Make sure that the sign of the whole part and that of the numerator do not disagree
         self::normalizeSigns($whole, $num, $den);
 
-        return new static(self::toInt($whole), self::toInt($num), self::toInt($den));
+        return self::createNew($whole, $num, $den);
     }
 
     private static function extractWholePartFromFraction(int|\GMP& $whole, int|\GMP& $num, int|\GMP& $den): void
@@ -522,6 +524,25 @@ class Rational
         }
     }
 
+    private static function createNew(int|\GMP $whole, int|\GMP $num, int|\GMP $den): static
+    {
+        $intWhole = self::toInt($whole);
+
+        try {
+            $intNum = self::toInt($num);
+            $intDen = self::toInt($den);
+        } catch (OverflowException) {
+            //If the numerator or denominator get too large, it is not an overflow, it is technically an underflow,
+            //meaning a value that is more precise than what can be represented with a fraction of two integers.
+            //We want to find another fraction that can be represented by two integers and whose value is as close as
+            //possible to the exact value.
+            [$approxNum, $approxDen] = self::getClosestFractionRepresentableByIntegers($num, $den);
+            throw new UnderflowException($den, new static($intWhole, $approxNum, $approxDen));
+        }
+
+        return new static($intWhole, $intNum, $intDen);
+    }
+
     /**
      * @throws OverflowException
      */
@@ -562,5 +583,168 @@ class Rational
     private function getApproximateFloat(): float
     {
         return $this->whole + (((float) $this->num) / $this->den);
+    }
+
+    private static function getClosestFractionRepresentableByIntegers(\GMP $num, \GMP $den): array
+    {
+        //See https://en.wikipedia.org/wiki/Simple_continued_fraction#Calculating_continued_fraction_representations
+        //Since we are computing the continued fraction of a rational number, this algorithm always terminates
+        $n = gmp_abs($num);
+        $d = $den;
+        Assert::true(gmp_cmp($d, 0) > 0);
+        $continuedFraction = [];
+        while (true) {
+            $wholePart = gmp_div_q($n, $d);
+            $n = gmp_sub($n, gmp_mul($wholePart, $d));
+            $continuedFraction[] = $wholePart;
+
+            if ($n == 0) {
+                break;
+            }
+
+            //Simplify and swap the numerator and denominator
+            //(we just tested for the case of n === 0, so taking the reciprocal is safe)
+            $gcd = gmp_gcd($n, $d);
+            $t = gmp_div($n, $gcd);
+            $n = gmp_div($d, $gcd);
+            $d = $t;
+        }
+
+        $bestConvergent = self::selectBestConvergent($continuedFraction, gmp_abs($num), $den, PHP_INT_MAX);
+
+        if (null !== $bestConvergent) {
+            //Remember about the sign: If the original fraction was negative, flip thw numerator sign
+            if ($num < 0) {
+                return [gmp_intval(gmp_neg($bestConvergent['num'])), gmp_intval($bestConvergent['den'])];
+            }
+
+            return [gmp_intval($bestConvergent['num']), gmp_intval($bestConvergent['den'])];
+        }
+
+        //If all fails, just return zero ( 0/1 )
+        return [0, 1];
+    }
+
+    /**
+     * This method generates a subset of all convergents for the specified continued fraction.
+     * Since we are interested in the convergent with the largest denominator that is less than or equal to the
+     * specified limit, we can ignore at once all convergents that we are sure cannot be the one we are looking for.
+     *
+     * @param \GMP[] $continuedFraction
+     *
+     * @return array{0: \GMP, 1: \GMP}
+     */
+    private static function selectBestConvergent(array $continuedFraction, \GMP $originalN, \GMP $originalD, int $limit): array
+    {
+        //@see https://en.wikipedia.org/wiki/Simple_continued_fraction#Best_rational_approximations
+        /** @var null|array{0: \GMP, 1: \GMP} $result */
+        $result = null;
+        for ($i = 1; $i <= count($continuedFraction); ++$i) {
+            $continuedFractionPrefix = array_slice($continuedFraction, 0, $i);
+            $lastDigit = $continuedFractionPrefix[count($continuedFractionPrefix) - 1];
+
+            //Is the last fraction in this sequence acceptable? If so, ignore all previous fractions, add this one to
+            //the result and move on to the next level of the continued fraction
+            $last = $lastDigit;
+            $fraction = self::getFraction($continuedFractionPrefix);
+            if (gmp_cmp($fraction['den'], $limit) <= 0) {
+                $result = $fraction;
+
+                continue;
+            }
+
+            //The naive algorithm iterates on all values between $lastDigit/2 and $lastDigit. But $lastDigit may be a
+            //LARGE value, and we are only interested in the largest fraction that we can represent with PHP integers.
+            //Since we already know that the last value is too large, we can use a binary search to efficiently reduce
+            //the range and then do a linear search for the last few steps.
+
+            //We already have the end element. Now we have to determine the start element.
+            //If the last digit is even, the fraction generated by half its value is only admissible if it is
+            //strictly better (i.e. closer to the target value) than the previous one
+            $first = gmp_div_q($lastDigit, 2, GMP_ROUND_PLUSINF);
+            if (null !== $result && gmp_div_r($lastDigit, 2) == 0 && gmp_cmp($lastDigit, 2) >= 0) {
+                $continuedFractionPrefix[count($continuedFractionPrefix) - 1] = $first;
+                $fraction = self::getFraction($continuedFractionPrefix);
+
+                //In order to compare the fractions, change them all to a common denominator
+                $lcmD = gmp_lcm($originalD, gmp_lcm($result['den'], $fraction['den']));
+                $lcmOriginalN = gmp_mul(gmp_div($lcmD, $originalD), $originalN);
+                $lcmFractionN = gmp_mul(gmp_div($lcmD, $fraction['den']), $fraction['num']);
+                $lcmPreviousValueN = gmp_mul(gmp_div($lcmD, $result['den']), $result['num']);
+
+                //Which value has a numerator that is closest to the numerator of the original value?
+                $comparison = gmp_cmp(
+                    gmp_abs(gmp_sub($lcmFractionN, $lcmOriginalN)),
+                    gmp_abs(gmp_sub($lcmPreviousValueN, $lcmOriginalN)),
+                );
+
+                if ($comparison >= 0) {
+                    $first = gmp_add($first, 1);
+                }
+            }
+
+            //Test that the first fraction is acceptable. If it is not, then it means that the previous value is the
+            //last acceptable one and we are done here
+            $continuedFractionPrefix[count($continuedFractionPrefix) - 1] = $first;
+            $fraction = self::getFraction($continuedFractionPrefix);
+            if (gmp_cmp($fraction['den'], $limit) > 0) {
+                break;
+            }
+
+            //Now we know that the first fraction is acceptable and the last one is not. If the number of fractions
+            //between these two extremes is large, start by running a binary search to reduce the range
+
+            //Binary search
+            while (gmp_cmp(gmp_sub($last, $first), 16) > 0) {
+                //We are using arbitrary precision numbers, so we can safely calculate the midpoint by summing the two
+                //values, without fearing an overflow
+                $mid = gmp_div_q(gmp_add($first, $last), 2);
+                $continuedFractionPrefix[count($continuedFractionPrefix) - 1] = $mid;
+                $fraction = self::getFraction($continuedFractionPrefix);
+                if (gmp_cmp($fraction['den'], $limit) <= 0) {
+                    //The fraction is acceptable, so the upper half of the range is where the searched value must be
+                    $first = $mid;
+                } else {
+                    //The fraction is not acceptable, so search in the lower half
+                    $last = $mid;
+                }
+            }
+
+            //Linear search for the final check
+            for ($j = $first; $j <= $last; $j = gmp_add($j, 1)) {
+                $continuedFractionPrefix[count($continuedFractionPrefix) - 1] = $j;
+                $fraction = self::getFraction($continuedFractionPrefix);
+                if (gmp_cmp($fraction['den'], $limit) > 0) {
+                    break;
+                }
+
+                $result = $fraction;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param \GMP[] $continuedFraction
+     *
+     * @return array{num: \GMP, den: \GMP}
+     */
+    private static function getFraction(array $continuedFraction): array
+    {
+        $n = gmp_init(0);
+        $d = gmp_init(1);
+
+        foreach (array_reverse($continuedFraction) as $continuedFractionElement) {
+            if ($n != 0) {
+                $t = $n;
+                $n = $d;
+                $d = $t;
+            }
+
+            $n = gmp_add($n, gmp_mul($continuedFractionElement, $d));
+        }
+
+        return ['num' => $n, 'den' => $d];
     }
 }

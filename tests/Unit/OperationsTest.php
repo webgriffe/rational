@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Webgriffe\Rational\Tests\Unit;
 
 use PHPUnit\Framework\TestCase;
+use Webgriffe\Rational\Exception\OverflowException;
+use Webgriffe\Rational\Exception\UnderflowException;
 use Webgriffe\Rational\Rational;
 
 final class OperationsTest extends TestCase
@@ -77,10 +79,16 @@ final class OperationsTest extends TestCase
         $a = Rational::fromWholeAndFraction(9000000000000000000, 15398197, 25526789);
         $b = Rational::fromWholeAndFraction(1000000000000000000, 42489019, 47777057);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Overflow error: value 10000000000000000001 is too large to be represented by a PHP integer');
+        try {
+            $a->add($b);
 
-        $a->add($b);
+            $this->fail('No exception thrown');
+        } catch (OverflowException $e) {
+            $this->assertEquals(
+                'Overflow error: value 10000000000000000001 is too large to be represented by a PHP integer',
+                $e->getMessage(),
+            );
+        }
     }
 
     public function testAddOverflow2()
@@ -88,10 +96,21 @@ final class OperationsTest extends TestCase
         $a = Rational::fromWholeAndFraction(2, 1000000000000000000, 4087722194471772533);
         $b = Rational::fromWholeAndFraction(3, 1000000000000000000, 6615500653910192833);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Overflow error: value 10703222848381965366000000000000000000 is too large to be represented by a PHP integer');
+        try {
+            $a->add($b);
 
-        $a->add($b);
+            $this->fail('No exception thrown');
+        } catch (UnderflowException $e) {
+            $this->assertEquals(
+                'Underflow error: value 27042328850531219626832203629342855989 is too large to be represented by a PHP integer',
+                $e->getMessage(),
+            );
+
+            $closestApproximation = $e->getClosestApproximation();
+            $this->assertEquals(5, $closestApproximation->getWholePart());
+            $this->assertEquals(2836454665136119111, $closestApproximation->getFractionPart()[0]);
+            $this->assertEquals(7166471343332811410, $closestApproximation->getFractionPart()[1]);
+        }
     }
 
     public function testAddOverflow3()
@@ -99,10 +118,21 @@ final class OperationsTest extends TestCase
         $a = Rational::fromWholeAndFraction(2, 1, 752128792922579);
         $b = Rational::fromWholeAndFraction(3, 1, 167426936962477);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Overflow error: value 125926620000312551413689068183 is too large to be represented by a PHP integer');
+        try {
+            $a->add($b);
 
-        $a->add($b);
+            $this->fail('No exception thrown');
+        } catch (UnderflowException $e) {
+            $this->assertEquals(
+                'Underflow error: value 125926620000312551413689068183 is too large to be represented by a PHP integer',
+                $e->getMessage(),
+            );
+
+            $closestApproximation = $e->getClosestApproximation();
+            $this->assertEquals(5, $closestApproximation->getWholePart());
+            $this->assertEquals(66325, $closestApproximation->getFractionPart()[0]);
+            $this->assertEquals(9082737239389216923, $closestApproximation->getFractionPart()[1]);
+        }
     }
 
     public function testAddNoOverflowOnLargeIntermediateResult()
