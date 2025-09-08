@@ -585,6 +585,9 @@ class Rational
         return $this->whole + (((float) $this->num) / $this->den);
     }
 
+    /**
+     * @return array{0: int, 1: int}
+     */
     private static function getClosestFractionRepresentableByIntegers(\GMP $num, \GMP $den): array
     {
         //We want to compute the continued fraction of the number that caused the underflow and use it to compute the
@@ -638,7 +641,7 @@ class Rational
      *
      * @return array{0: \GMP, 1: \GMP}
      */
-    private static function selectBestConvergent(array $continuedFraction, \GMP $originalN, \GMP $originalD, int $limit): array
+    private static function selectBestConvergent(array $continuedFraction, \GMP $originalN, \GMP $originalD, int $limit): ?array
     {
         //@see https://en.wikipedia.org/wiki/Simple_continued_fraction#Best_rational_approximations
         /** @var null|array{0: \GMP, 1: \GMP} $result */
@@ -705,9 +708,12 @@ class Rational
             //between these two endpoints is large, start by running a binary search to reduce the range
 
             //Binary search
+            //The loop invariant is that the $first value always produces a fraction that is acceptable, while the $last
+            //value always produces a fraction that is not acceptable
             while (gmp_cmp(gmp_sub($last, $first), 16) > 0) {
                 //We are using arbitrary precision numbers, so we can safely calculate the midpoint by summing the two
-                //values and halving, without fearing an overflow
+                //endpoints and halving, without fearing an overflow. And since we stop before the range gets too small,
+                //we do not have to deal with edge cases that arise when the interval gets very small
                 $mid = gmp_div_q(gmp_add($first, $last), 2);
                 $continuedFractionPrefix[$lastIndex] = $mid;
                 $fraction = self::getFraction($continuedFractionPrefix);
@@ -726,7 +732,8 @@ class Rational
                 $fraction = self::getFraction($continuedFractionPrefix);
                 if (gmp_cmp($fraction['den'], $limit) > 0) {
                     //This is the first value that is not acceptable.
-                    //This means that the last value was the last acceptable one
+                    //This means that the last value was the last acceptable one, and thus the value in $result is the
+                    //one to return
                     break;
                 }
 
