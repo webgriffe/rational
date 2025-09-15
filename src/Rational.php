@@ -536,8 +536,8 @@ class Rational
             //meaning a value that is more precise than what can be represented with a fraction of two integers.
             //We want to find another fraction that can be represented by two integers and whose value is as close as
             //possible to the exact value.
-            [$approxNum, $approxDen] = self::getClosestFractionRepresentableByIntegers($num, $den);
-            throw new UnderflowException($den, new static($intWhole, $approxNum, $approxDen));
+            $approximate = self::getClosestFractionRepresentableByIntegers($num, $den);
+            throw new UnderflowException($den, new static($intWhole, $approximate['num'], $approximate['den']));
         }
 
         return new static($intWhole, $intNum, $intDen);
@@ -586,7 +586,7 @@ class Rational
     }
 
     /**
-     * @return array{0: int, 1: int}
+     * @return array{num: int, den: int}
      */
     private static function getClosestFractionRepresentableByIntegers(\GMP $num, \GMP $den): array
     {
@@ -622,14 +622,17 @@ class Rational
         if (null !== $bestConvergent) {
             //Remember about the sign: If the original value was negative, flip thw numerator sign
             if ($num < 0) {
-                return [gmp_intval(gmp_neg($bestConvergent['num'])), gmp_intval($bestConvergent['den'])];
+                return [
+                    'num' => gmp_intval(gmp_neg($bestConvergent['num'])),
+                    'den' => gmp_intval($bestConvergent['den']),
+                ];
             }
 
-            return [gmp_intval($bestConvergent['num']), gmp_intval($bestConvergent['den'])];
+            return ['num' => gmp_intval($bestConvergent['num']), 'den' => gmp_intval($bestConvergent['den'])];
         }
 
         //If all fails, just return zero ( 0/1 )
-        return [0, 1];
+        return ['num' => 0, 'den' => 1];
     }
 
     /**
