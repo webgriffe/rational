@@ -627,11 +627,11 @@ class Rational
             $n = gmp_sub($n, gmp_mul($wholePart, $d));
 
             //If the value becomes zero, we are done
-            if ($n == 0) {
+            if (gmp_cmp($n, 0) === 0) {
                 break;
             }
 
-            //Since we subtracted the whole part from the fraction, the remaining fraction myst be less than 1
+            //Since we subtracted the whole part from the fraction, the remaining fraction must be less than 1
             Assert::true(gmp_cmp($n, $d) < 0);
 
             //Simplify and take the reciprocal fraction (i.e. swap the numerator and denominator)
