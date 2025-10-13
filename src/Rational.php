@@ -119,9 +119,10 @@ class Rational
         //  a/b <? c/d
         //We know that b and d are both positive, so b*d is also positive. Multiply both sides by "b*d":
         //  a*b*d/b <? c*b*d/d
-        //Since b and d are non-zero, we can simplify:
+        //Since b and d are both non-zero, we can simplify:
         //  a*d <? c*b
         //This allows us to compare the fractions without divisions, thus avoiding possible rounding errors.
+        //However, we have to use GMP functions for this as the multiplications may yield very large values
         return ($this->whole <=> $other->whole) ?:
             gmp_cmp(
                 gmp_mul($this->num, $other->den),
@@ -157,6 +158,7 @@ class Rational
         //generate a DivisionByZeroError
         self::normalizeSigns($whole, $num, $den);
 
+        //Create and return a new Rational with the result
         return self::createNew($whole, $num, $den);
     }
 
@@ -188,7 +190,10 @@ class Rational
         );
         $den = gmp_mul($this->den, $other->den);        //c*f
 
-        //If the starting data had its signs normalized, then here we can be sure that the signs are correct too.
+        //If the starting data had its signs normalized, then here we can be sure that the signs are correct too. That
+        //is because the whole part and each addendum in the numerator has one term from each factor (plus, possibly,
+        //a denominator, which we know is always positive and thus does not affect the sign of the result). So the sign
+        //of each component is the product of the signs of the two factors (or possibly zero).
 
         //The fractional part may be an improper fraction. If so, extract the whole part from it. Notice that this may
         //cause the whole part and/or the numerator to change from nonzero to zero or vice versa, but it cannot cause
@@ -212,6 +217,7 @@ class Rational
         //= (a + b/c) / ((f*d + e)/f)
         //= (a + b/c) * (f/(f*d + e))
         //= (a*c + b)/c * f/(f*d + e)
+        //      (compute the numerator and denominator in order to represent everything as a single fraction)
         //= (a*c + b)*f / (f*d + e)*c
         $newNum = gmp_mul(
             gmp_add(
@@ -250,13 +256,14 @@ class Rational
      */
     public function neg(): static
     {
+        //Just invert the whole part and the numerator. Watch out for overflows, though
         if ($this->whole === PHP_INT_MIN) {
             throw new OverflowException(gmp_neg(gmp_init($this->whole)));
         } elseif ($this->num === PHP_INT_MIN) {
             throw new OverflowException(gmp_neg(gmp_init($this->num)));
         }
 
-        //No need to normalize again, just invert the whole part and the numerator
+        //No need to normalize again
         return new static(-$this->whole, -$this->num, $this->den);
     }
 
@@ -265,13 +272,14 @@ class Rational
      */
     public function abs(): static
     {
+        //Just take the absolute value of the whole part and the numerator. Watch out for overflows, though
         if ($this->whole === PHP_INT_MIN) {
             throw new OverflowException(gmp_neg(gmp_init($this->whole)));
         } elseif ($this->num === PHP_INT_MIN) {
             throw new OverflowException(gmp_neg(gmp_init($this->num)));
         }
 
-        //No need to normalize again, just extract the absolute value of both the whole part and the numerator
+        //No need to normalize again
         return new static(abs($this->whole), abs($this->num), $this->den);
     }
 
@@ -375,13 +383,15 @@ class Rational
         $result = gmp_strval(gmp_abs($rounded));
 
         if ($maxDecimals > 0) {
-            //Extract up to the maximum number of decimals from the end of the result string.
-            //Notice that the result may be shorter than $maxDecimals if the value is something like 0.0001234. If that
-            //happens, pad the string with zeros to make sure that we have all the zeros to the left to get all the way
-            //to the decimal separator.
+            //Now $result is a number containing the whole part and the decimal part, the latter ending at the maximum
+            //number of decimals requested.
+            //Start by extracting the last $maxDecimals digits. Notice that if the value is very small (such as
+            //0.0001234) and only a few decimal places are requested, the extracted decimal part may need to be
+            //left-padded with zeros all the way to the decimal separator.
             $decimalPart = str_pad(substr($result, -$maxDecimals), $maxDecimals, '0', STR_PAD_LEFT);
 
-            //Leave the minimum number of trailing zeros necessary to meet the minimum number of decimals requested.
+            //Now clean up the decimal part. Remove all trailing zeros, then add back as many as necessary to meet the
+            //minimum number of decimals requested
             $decimalPart = str_pad(rtrim($decimalPart, '0'), $minDecimals, '0');
 
             //Extract the whole part, if any. If there is no whole part, it means that the value is something like
@@ -414,7 +424,12 @@ class Rational
     }
 
     /**
-     * @deprecated Use toDecimalString instead
+     * @deprecated Use toDecimalString instead. If you need to use a decimal separator other that . just replace the "."
+     *              in the result with whatever character you want.
+     *              If you want to have a thousand separator, split the result into a whole and decimal part, invert the
+     *              whole part, run str_split() on it, implode the result using whatever separator you want as "glue"
+     *              (if the separator is more than one character, invert it too before using it as glue) and finally
+     *              reverse the result string and add back the decimal part.
      */
     public function format(
         int $maxDecimals,
@@ -432,12 +447,13 @@ class Rational
             $quotedDecimalSeparator = preg_quote($decimalSeparator, '/');
             preg_match("/^(-?)(\d*)({$quotedDecimalSeparator}\d*)?$/", $string, $matches);
 
+            //The decimal part may not be present. In that case, pad the result array with an extra empty string for
+            //that missing part
             [, $sign, $whole, $decimalWithSeparator] = array_pad($matches, 4, '');
 
-            //We must split this string in groups of 3 characters. However, this split must be done from the right to
-            //the left. To do so, we reverse the string, split it into 3-char-long chunks, insert the (reversed)
-            //separator between the chunks, combine everything back into one string and reverse the result to get the
-            //correct string
+            //We must split this string in groups of 3 characters. However, this split must be done from right to left.
+            //To do so, we reverse the string, split it into 3-char-long chunks, insert the (reversed) separator between
+            //the chunks, combine everything back into one string and reverse the result to get the correct string
             $whole = strrev(implode(strrev($thousandsSeparator), str_split(strrev($whole), 3)));
 
             //Finally build the number back by combining all the parts
@@ -578,7 +594,8 @@ class Rational
     /**
      * This is only intended to be used internally. It must NOT be made public.
      * If you need to convert a rational to a float, you're probably doing something wrong.
-     * Consider using one of the formatting functions instead
+     * Consider using one of the formatting functions instead, such as toDecimalString, formatByNumberFormatter or
+     * formatCurrencyByNumberFormatter
      */
     private function getApproximateFloat(): float
     {
@@ -586,8 +603,9 @@ class Rational
     }
 
     /**
-     * Given a proper fraction n/d (i.e. one where |n| < |d|), compute the proper fraction n'/d' where both n' and d'
-     * are representable by PHP integers and whose value is closest to that of the original fraction.
+     * Given a proper fraction a/b (i.e. one where |a| < |b|), compute the proper fraction c/d where both c and d
+     * are representable by PHP integers (PHP_INT_MIN <= c <= PHP_INT_MAX and PHP_INT_MIN <= d <= PHP_INT_MAX) and
+     * whose value is closest to that of the original fraction.
      *
      * @return array{num: int, den: int}
      */
@@ -705,12 +723,12 @@ class Rational
 
             $lcmOriginalN = gmp_mul(gmp_div($lcmD, $originalD), $originalN);
             $lcmFractionN = gmp_mul(gmp_div($lcmD, $fraction['den']), $fraction['num']);
-            $lcmPreviousValueN = gmp_mul(gmp_div($lcmD, $previousBest['den']), $previousBest['num']);
+            $lcmPreviousBestN = gmp_mul(gmp_div($lcmD, $previousBest['den']), $previousBest['num']);
 
             //Which value has a numerator that is closest to the numerator of the original value?
             $comparison = gmp_cmp(
                 gmp_abs(gmp_sub($lcmFractionN, $lcmOriginalN)),
-                gmp_abs(gmp_sub($lcmPreviousValueN, $lcmOriginalN)),
+                gmp_abs(gmp_sub($lcmPreviousBestN, $lcmOriginalN)),
             );
 
             if ($comparison >= 0) {
@@ -731,13 +749,15 @@ class Rational
         //Now we know that the first fraction is acceptable and the last one is not.
 
         //The naïve algorithm iterates on all values between $first and $last (included). But $last may be a LARGE
-        //value, and we are only interested in the largest fraction that we can represent with PHP integers.
-        //Since we already know that the last value is too large (we tested it with the previous if() statement), we can
-        //use a binary search to efficiently reduce the range and then do a linear search for the last few steps.
+        //value, and we are only interested in finding a particular value in this potentially large set.
+        //Since we already know that the first value is acceptable (we just tested that with the previous if()
+        //statement) and last value is not acceptable (we tested it at the beginning of this function), we can use a
+        //binary search to efficiently reduce the range and then do a linear search for the last few steps.
 
         //Binary search
         //The loop invariant is that the $first value always produces a fraction that is acceptable, while the $last
-        //value always produces a fraction that is not acceptable
+        //value always produces a fraction that is not acceptable.
+        //We have to find the largest value that produces an acceptable fraction.
         while (gmp_cmp(gmp_sub($last, $first), 16) > 0) {
             //We are using arbitrary precision numbers, so we can safely calculate the midpoint by summing the two
             //endpoints and halving, without fearing an overflow. And since we stop before the range gets too small,
