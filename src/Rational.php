@@ -40,7 +40,6 @@ class Rational
     }
 
     /**
-     * @throws OverflowException
      * @throws DivisionByZeroError
      */
     public static function fromFraction(int $num, int $den): static
@@ -54,6 +53,9 @@ class Rational
      */
     public static function fromWholeAndFraction(int $whole, int $num, int $den): static
     {
+        //If the data can be represented by integers, then no underflow can occur.
+        //Overflows may still happen in case a very large whole part is combined with a large fraction, such that the
+        //combined whole part is greater than the largest possible integer
         return self::normalizeAllAndCreate($whole, $num, $den);
     }
 
@@ -132,6 +134,7 @@ class Rational
 
     /**
      * @throws OverflowException
+     * @throws UnderflowException
      */
     public function add(self $other): static
     {
@@ -164,6 +167,7 @@ class Rational
 
     /**
      * @throws OverflowException
+     * @throws UnderflowException
      */
     public function sub(self $other): static
     {
@@ -172,6 +176,7 @@ class Rational
 
     /**
      * @throws OverflowException
+     * @throws UnderflowException
      */
     public function mul(self $other): static
     {
@@ -208,6 +213,8 @@ class Rational
 
     /**
      * @throws OverflowException
+     * @throws UnderflowException
+     * @throws DivisionByZeroError
      */
     public function div(self $other): static
     {
@@ -542,6 +549,10 @@ class Rational
         }
     }
 
+    /**
+     * @throws OverflowException
+     * @throws UnderflowException
+     */
     private static function createNew(int|\GMP $whole, int|\GMP $num, int|\GMP $den): static
     {
         $intWhole = self::safeCastToInt($whole);
