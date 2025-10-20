@@ -150,13 +150,13 @@ class Rational
         //The fractional part may be an improper fraction. If so, extract the whole part from it
         self::extractWholePartFromFraction($whole, $num, $den);
 
-        //Simplify the fraction
-        self::simplify($num, $den);
-
         //Make sure that the sign of the whole part and that of the numerator do not disagree
         //Since the initial denominators cannot be zero, the new value cannot be zero either. So this call cannot
         //generate a DivisionByZeroError
         self::normalizeSigns($whole, $num, $den);
+
+        //Simplify the fraction
+        self::simplify($num, $den);
 
         //Create and return a new Rational with the result
         return self::createNew($whole, $num, $den);
@@ -245,7 +245,7 @@ class Rational
     {
         //1 / (a + b/c)
         //= 1 / ((a*c + b)/c)
-        //= c/(a*c + b)
+        //= c / (a*c + b)
         $newDen = gmp_add(gmp_mul($this->whole, $this->den), $this->num);
 
         return self::normalizeAllAndCreate(0, $this->den, $newDen);
@@ -480,39 +480,22 @@ class Rational
 
         self::extractWholePartFromFraction($whole, $num, $den);
 
-        //Simplify the fraction, if possible
-        self::simplify($num, $den);
-
         //Make sure that the sign of the whole part and that of the numerator do not disagree
         self::normalizeSigns($whole, $num, $den);
+
+        //Simplify the fraction, if possible
+        self::simplify($num, $den);
 
         return self::createNew($whole, $num, $den);
     }
 
     private static function extractWholePartFromFraction(int|\GMP& $whole, int|\GMP& $num, int|\GMP& $den): void
     {
-        //If the fraction is an improper fraction (|num| > den), then extract the whole part of that and add it to the
+        //If the fraction is an improper fraction (|num| >= den), then extract the whole part of that and add it to the
         //actual whole part
-        $additionalWholePart = (int) ($num / $den);
-        if ($additionalWholePart != 0) {
-            $whole += $additionalWholePart;
-            $num -= ($additionalWholePart * $den);
-        }
-    }
-
-    private static function simplify(int|\GMP& $num, int|\GMP& $den): void
-    {
-        //Simplify the fraction, if possible
-        if (is_int($num) && is_int($den)) {
-            $gcd = self::gcdInt($num, $den);
-        } else {
-            $gcd = gmp_gcd($num, $den);
-        }
-
-        if ($gcd > 1) {
-            $num /= $gcd;
-            $den /= $gcd;
-        }
+        $additionalWholePart = gmp_div_q($num, $den);
+        $whole = gmp_add($whole, $additionalWholePart);
+        $num = gmp_sub($num, gmp_mul($additionalWholePart, $den));
     }
 
     /**
@@ -526,58 +509,59 @@ class Rational
         if ($den == 0) {
             throw new DivisionByZeroError();
         } elseif ($den < 0) {
-            $num = -$num;
-            $den = -$den;
+            $num = gmp_neg($num);
+            $den = gmp_neg($den);
         }
 
         //Make sure that the signs of $whole and $num agree.
-        if ($whole > 0 && $num < 0) {
-            $whole -= 1;
-            $num += $den;
-        } elseif ($whole < 0 && $num > 0) {
-            $whole += 1;
-            $num -= $den;
+        $wholeSign = gmp_cmp($whole, 0);
+        $numSign = gmp_cmp($num, 0);
+        if ($wholeSign * $numSign < 0) {
+            //Both the whole part and the numerator are non-zero and with different signs.
+            //Add (or subtract) 1 from the whole part and transfer that amount to the fraction, by subtracting (or
+            //adding) the denominator to the numerator in a way that causes the numerator to switch sign.
+            //Since |n| < d, then |n| - d < 0. This means that the resulting numerator is guaranteed to have switched
+            //sign. At the same time thw whole part will either keep the same sign or, at most become zero.
+            $whole = gmp_sub($whole, $wholeSign);
+            $num = gmp_add($num, gmp_mul($den, $wholeSign));
+        }
+    }
+
+    private static function simplify(int|\GMP& $num, int|\GMP& $den): void
+    {
+        //Simplify the fraction, if possible
+        if (is_int($num) && is_int($den)) {
+            $gcd = self::gcdInt($num, $den);
+        } else {
+            $gcd = gmp_gcd($num, $den);
+        }
+
+        if ($gcd > 1) {
+            $num = gmp_div_q($num, $gcd);
+            $den = gmp_div_q($den, $gcd);
         }
     }
 
     private static function createNew(int|\GMP $whole, int|\GMP $num, int|\GMP $den): static
     {
-        $intWhole = self::toInt($whole);
+        $intWhole = self::safeCastToInt($whole);
 
         try {
-            $intNum = self::toInt($num);
-            $intDen = self::toInt($den);
+            $intNum = self::safeCastToInt($num);
+            $intDen = self::safeCastToInt($den);
         } catch (OverflowException) {
             //If the numerator or denominator get too large, it is not an overflow, it is technically an underflow,
             //meaning a value that is more precise than what can be represented with a fraction of two integers.
             //We want to find another fraction that can be represented by two integers and whose value is as close as
             //possible to the exact value.
             $approximate = self::getClosestFractionRepresentableByIntegers($num, $den);
-            throw new UnderflowException($den, new static($intWhole, $approximate['num'], $approximate['den']));
+            throw new UnderflowException(
+                $den,
+                self::fromWholeAndFraction($intWhole, $approximate['num'], $approximate['den']),
+            );
         }
 
         return new static($intWhole, $intNum, $intDen);
-    }
-
-    /**
-     * @throws OverflowException
-     */
-    private static function toInt(int|\GMP $number): int
-    {
-        if (is_int($number)) {
-            return $number;
-        }
-
-        if (gmp_cmp(PHP_INT_MIN, $number) <= 0 && gmp_cmp($number, PHP_INT_MAX) <= 0) {
-            return gmp_intval($number);
-        }
-
-        //It would be nice to suggest the rational number that can still be represented with integers that is closest
-        //to the value that caused the error. Perhaps this can be calculated by computing the continued fraction of
-        //the value that generated the overflow and stopping at the last fraction that can still be represented with
-        //integers.
-        //@see https://en.wikipedia.org/wiki/Continued_fraction
-        throw new OverflowException($number);
     }
 
     private static function gcdInt(int $a, int $b): int
@@ -589,6 +573,22 @@ class Rational
         }
 
         return abs($a);
+    }
+
+    /**
+     * @throws OverflowException
+     */
+    private static function safeCastToInt(int|\GMP $number): int
+    {
+        if (is_int($number)) {
+            return $number;
+        }
+
+        if (gmp_cmp(PHP_INT_MIN, $number) <= 0 && gmp_cmp($number, PHP_INT_MAX) <= 0) {
+            return gmp_intval($number);
+        }
+
+        throw new OverflowException($number);
     }
 
     /**
@@ -609,10 +609,10 @@ class Rational
      *
      * @return array{num: int, den: int}
      */
-    private static function getClosestFractionRepresentableByIntegers(\GMP $num, \GMP $den): array
+    private static function getClosestFractionRepresentableByIntegers(\GMP $originalNum, \GMP $originalDen): array
     {
-        Assert::true(gmp_cmp($den, 0) > 0);
-        Assert::true(gmp_cmp(gmp_abs($num), $den) < 0);
+        Assert::true(gmp_cmp($originalDen, 0) > 0);
+        Assert::true(gmp_cmp(gmp_abs($originalNum), $originalDen) < 0);
 
         //We want to compute the continued fraction of the number that caused the underflow and use it to compute the
         //closest approximation that can be represented with the size of integers that we have available.
@@ -620,8 +620,8 @@ class Rational
         //rational numbers, so the continued fractions are finite. Which in turn means that this algorithm always
         //terminates.
         //See https://en.wikipedia.org/wiki/Simple_continued_fraction#Calculating_continued_fraction_representations
-        $n = gmp_abs($num);
-        $d = $den;
+        $n = gmp_abs($originalNum);
+        $d = $originalDen;
         $continuedFraction = [];
         $bestConvergent = null;
         while (true) {
@@ -632,10 +632,10 @@ class Rational
             //Try to improve the best convergent given the new continued fraction
             $newBestConvergent = self::selectBestConvergent(
                 $continuedFraction,
-                gmp_abs($num),
-                $den,
+                gmp_abs($originalNum),
+                $originalDen,
                 $bestConvergent,
-                gmp_cmp($num, 0) >= 0 ? gmp_init(PHP_INT_MAX) : gmp_abs(gmp_init(PHP_INT_MIN)),
+                gmp_cmp($originalNum, 0) >= 0 ? gmp_init(PHP_INT_MAX) : gmp_abs(gmp_init(PHP_INT_MIN)),
             );
             if (null !== $newBestConvergent) {
                 $bestConvergent = $newBestConvergent;
@@ -652,24 +652,24 @@ class Rational
             //Since we subtracted the whole part from the fraction, the remaining fraction must be less than 1
             Assert::true(gmp_cmp($n, $d) < 0);
 
-            //Simplify and take the reciprocal fraction (i.e. swap the numerator and denominator)
+            //Take the reciprocal fraction (i.e. swap the numerator and denominator) and simplify
             //We just tested for the case of n === 0, so the new denominator will certainly not be zero
-            $gcd = gmp_gcd($n, $d);
-            $t = gmp_div($n, $gcd);
-            $n = gmp_div($d, $gcd);
+            $t = $n;
+            $n = $d;
             $d = $t;
+            self::simplify($n, $d);
 
             Assert::true(gmp_cmp($d, 0) > 0);
         }
 
         //If all fails, just return zero ( 0/1 )
-        //Not sure if this can happen in practice, but handling it is just a couple extra lines of code...
+        //Not sure if this can happen in practice, but handling it is just a couple extra lines of code, so why not?
         $bestNum = 0;
         $bestDen = 1;
 
         if (null !== $bestConvergent) {
             //Don't forget about the sign: if the original value was negative, flip thw numerator sign
-            if (gmp_cmp($num, 0) < 0) {
+            if (gmp_cmp($originalNum, 0) < 0) {
                 $bestConvergent['num'] = gmp_neg($bestConvergent['num']);
             }
 
@@ -692,8 +692,8 @@ class Rational
      */
     private static function selectBestConvergent(
         array $continuedFraction,
-        \GMP $originalN,
-        \GMP $originalD,
+        \GMP $originalNum,
+        \GMP $originalDen,
         ?array $previousBest,
         \GMP $largestAllowedDenominator,
     ): ?array {
@@ -719,11 +719,11 @@ class Rational
 
             //In order to compare $fraction and $previousBest to the target value, convert them all to a common
             //denominator
-            $lcmD = gmp_lcm($originalD, gmp_lcm($previousBest['den'], $fraction['den']));
+            $lcmD = gmp_lcm($originalDen, gmp_lcm($previousBest['den'], $fraction['den']));
 
-            $lcmOriginalN = gmp_mul(gmp_div($lcmD, $originalD), $originalN);
-            $lcmFractionN = gmp_mul(gmp_div($lcmD, $fraction['den']), $fraction['num']);
-            $lcmPreviousBestN = gmp_mul(gmp_div($lcmD, $previousBest['den']), $previousBest['num']);
+            $lcmOriginalN = gmp_mul(gmp_div_q($lcmD, $originalDen), $originalNum);
+            $lcmFractionN = gmp_mul(gmp_div_q($lcmD, $fraction['den']), $fraction['num']);
+            $lcmPreviousBestN = gmp_mul(gmp_div_q($lcmD, $previousBest['den']), $previousBest['num']);
 
             //Which value has a numerator that is closest to the numerator of the original value?
             $comparison = gmp_cmp(
@@ -820,11 +820,7 @@ class Rational
 
         //I'm not sure whether the above code is guaranteed to generate a fraction that is already simplified.
         //So, just to be sure, try to simplify
-        $gcd = gmp_gcd($n, $d);
-        if (gmp_cmp($gcd, 1) > 0) {
-            $n = gmp_div($n, $gcd);
-            $d = gmp_div($d, $gcd);
-        }
+        self::simplify($n, $d);
 
         return ['num' => $n, 'den' => $d];
     }

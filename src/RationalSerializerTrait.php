@@ -12,8 +12,8 @@ trait RationalSerializerTrait
             return null;
         }
 
-        [$num, $den] = $rational->getFractionPart();
         $whole = $rational->getWholePart();
+        [$num, $den] = $rational->getFractionPart();
 
         return (string) $whole.$this->getSeparator().(string) $num.$this->getSeparator().(string) $den;
     }
@@ -36,7 +36,8 @@ trait RationalSerializerTrait
         //Adding the separators that is 20 + 1 + 20 + 1 + 20 = 62 characters, so 64 chars should be more than enough to
         //store the concatenation of the three values
 
-        //@TODO: make this a constant after we drop support for PHP versions that do not support constants in traits
+        //@TODO: make this a constant (and maybe deprecate this method) after we drop support for PHP versions that do
+        //      not support constants in traits
         return 64;
     }
 
