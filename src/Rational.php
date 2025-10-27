@@ -752,10 +752,11 @@ class Rational
         //Test whether the first fraction is acceptable.
         //If it is not, then it means that no value is acceptable and we are done
         $continuedFraction[$lastIndex] = $first;
-        $fraction = self::getFraction($continuedFraction);
-        if (!self::fractionIsAcceptable($fraction, $largestAllowedDenominator)) {
+        if (!self::fractionIsAcceptable(self::getFraction($continuedFraction), $largestAllowedDenominator)) {
             return null;
         }
+
+        Assert::lessThan(gmp_cmp($first, $last), 0);
 
         //Now we know that the first fraction is acceptable and the last one is not.
 
@@ -775,14 +776,15 @@ class Rational
             //we do not have to concern with edge cases that arise when the interval gets very small
             $mid = gmp_div_q(gmp_add($first, $last), 2);
             $continuedFraction[$lastIndex] = $mid;
-            $fraction = self::getFraction($continuedFraction);
-            if (self::fractionIsAcceptable($fraction, $largestAllowedDenominator)) {
+            if (self::fractionIsAcceptable(self::getFraction($continuedFraction), $largestAllowedDenominator)) {
                 //The fraction is acceptable, so the upper half of the range is where the best value must be
                 $first = $mid;
             } else {
                 //The fraction is not acceptable, so search in the lower half
                 $last = $mid;
             }
+
+            Assert::lessThan(gmp_cmp($first, $last), 0);
         }
 
         //Linear search in the last remaining values.
