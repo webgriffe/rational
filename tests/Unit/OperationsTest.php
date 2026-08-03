@@ -11,7 +11,7 @@ use Webgriffe\Rational\Rational;
 
 final class OperationsTest extends TestCase
 {
-    public function testAdd1()
+    public function testAdd1(): void
     {
         $a = Rational::fromWholeAndFraction(2, 1, 4);
         $b = Rational::fromWholeAndFraction(7, 3, 4);
@@ -20,7 +20,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([0, 1], $c->getFractionPart());
     }
 
-    public function testAdd2()
+    public function testAdd2(): void
     {
         $a = Rational::fromWholeAndFraction(-2, -1, 4);
         $b = Rational::fromWholeAndFraction(-7, -3, 4);
@@ -29,7 +29,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([0, 1], $c->getFractionPart());
     }
 
-    public function testAdd3()
+    public function testAdd3(): void
     {
         $a = Rational::fromWholeAndFraction(-2, -1, 4);
         $b = Rational::fromWholeAndFraction(7, 3, 5);
@@ -38,7 +38,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([7, 20], $c->getFractionPart());
     }
 
-    public function testSubtract1()
+    public function testSubtract1(): void
     {
         $a = Rational::fromWholeAndFraction(2, 3, 4);
         $b = Rational::fromWholeAndFraction(7, 1, 4);
@@ -47,7 +47,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([-1, 2], $c->getFractionPart());
     }
 
-    public function testMul1()
+    public function testMul1(): void
     {
         $a = Rational::fromWholeAndFraction(2, 3, 4);
         $b = Rational::fromWholeAndFraction(7, 1, 4);
@@ -56,7 +56,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([15, 16], $c->getFractionPart());
     }
 
-    public function testMul2()
+    public function testMul2(): void
     {
         $a = Rational::fromWholeAndFraction(-5, -3, 7);
         $b = Rational::fromWholeAndFraction(7, 1, 4);
@@ -65,7 +65,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([-5, 14], $c->getFractionPart());
     }
 
-    public function testMul3()
+    public function testMul3(): void
     {
         $a = Rational::fromWholeAndFraction(-5, -3, 7);
         $b = Rational::fromWholeAndFraction(-17, -9, 10);
@@ -74,7 +74,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([6, 35], $c->getFractionPart());
     }
 
-    public function testAddOverflow1()
+    public function testAddOverflow1(): void
     {
         $a = Rational::fromWholeAndFraction(9000000000000000000, 15398197, 25526789);
         $b = Rational::fromWholeAndFraction(1000000000000000000, 42489019, 47777057);
@@ -91,7 +91,7 @@ final class OperationsTest extends TestCase
         }
     }
 
-    public function testAddOverflow2()
+    public function testAddOverflow2(): void
     {
         $a = Rational::fromWholeAndFraction(2, 1000000000000000000, 4087722194471772533);
         $b = Rational::fromWholeAndFraction(3, 1000000000000000000, 6615500653910192833);
@@ -113,7 +113,7 @@ final class OperationsTest extends TestCase
         }
     }
 
-    public function testAddOverflow3()
+    public function testAddOverflow3(): void
     {
         $a = Rational::fromWholeAndFraction(2, 1, 752128792922579);
         $b = Rational::fromWholeAndFraction(3, 1, 167426936962477);
@@ -135,7 +135,7 @@ final class OperationsTest extends TestCase
         }
     }
 
-    public function testAddNoOverflowOnLargeIntermediateResult()
+    public function testAddNoOverflowOnLargeIntermediateResult(): void
     {
         $a = Rational::fromWholeAndFraction(2, 900000000, 956746069);
         $b = Rational::fromWholeAndFraction(3, 9000000000, 9595665337);
@@ -144,7 +144,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([8066198333685689747, 9180615090614310253], $c->getFractionPart());
     }
 
-    public function testAbs1()
+    public function testAbs1(): void
     {
         $a = Rational::fromWhole(3);
         $b = $a->abs();
@@ -152,7 +152,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([0, 1], $b->getFractionPart());
     }
 
-    public function testAbs2()
+    public function testAbs2(): void
     {
         $a = Rational::fromWhole(-17);
         $b = $a->abs();
@@ -160,7 +160,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([0, 1], $b->getFractionPart());
     }
 
-    public function testAbs3()
+    public function testAbs3(): void
     {
         $a = Rational::fromWholeAndFraction(19, 5, 7);
         $b = $a->abs();
@@ -168,7 +168,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([5, 7], $b->getFractionPart());
     }
 
-    public function testAbs4()
+    public function testAbs4(): void
     {
         $a = Rational::fromWholeAndFraction(-23, -3, 11);
         $b = $a->abs();
@@ -176,7 +176,7 @@ final class OperationsTest extends TestCase
         $this->assertEquals([3, 11], $b->getFractionPart());
     }
 
-    public function testChainOfOperations()
+    public function testChainOfOperations(): void
     {
         //Creates a zero value
         $r0 = Rational::zero();
@@ -315,7 +315,7 @@ final class OperationsTest extends TestCase
         $this->assertTrue($r0->equals($r13));
     }
 
-    public function testCompare1()
+    public function testCompare1(): void
     {
         $r1 = Rational::fromWholeAndFraction(4, 7, 10);
         $r2 = Rational::fromWholeAndFraction(3, 11, 13);
@@ -323,7 +323,7 @@ final class OperationsTest extends TestCase
         $this->assertLessThan(0, $r2->compare($r1));
     }
 
-    public function testCompare2()
+    public function testCompare2(): void
     {
         $r1 = Rational::fromWholeAndFraction(5, 31, 97);
         $r2 = Rational::fromWholeAndFraction(5, 3, 4);
@@ -331,7 +331,7 @@ final class OperationsTest extends TestCase
         $this->assertGreaterThan(0, $r2->compare($r1));
     }
 
-    public function testCompare3()
+    public function testCompare3(): void
     {
         $r1 = Rational::fromWholeAndFraction(1, 3, 4);
         $r2 = Rational::fromWholeAndFraction(-5, -5, 6);
@@ -339,7 +339,7 @@ final class OperationsTest extends TestCase
         $this->assertLessThan(0, $r2->compare($r1));
     }
 
-    public function testCompare4()
+    public function testCompare4(): void
     {
         $r1 = Rational::fromWholeAndFraction(-1, -3, 4);
         $r2 = Rational::fromWholeAndFraction(-1, -5, 6);
@@ -347,7 +347,7 @@ final class OperationsTest extends TestCase
         $this->assertLessThan(0, $r2->compare($r1));
     }
 
-    public function testCompare5()
+    public function testCompare5(): void
     {
         $r1 = Rational::fromWholeAndFraction(0, -3, 4);
         $r2 = Rational::fromWholeAndFraction(0, -1, 3);
@@ -355,7 +355,7 @@ final class OperationsTest extends TestCase
         $this->assertGreaterThan(0, $r2->compare($r1));
     }
 
-    public function testCompare6()
+    public function testCompare6(): void
     {
         $r1 = Rational::fromWholeAndFraction(0, -3, 4);
         $r2 = Rational::fromWholeAndFraction(0, 1, 3);
@@ -363,7 +363,7 @@ final class OperationsTest extends TestCase
         $this->assertGreaterThan(0, $r2->compare($r1));
     }
 
-    public function testCompare7()
+    public function testCompare7(): void
     {
         $r1 = Rational::fromWholeAndFraction(0, 0, 1);
         $r2 = Rational::fromWholeAndFraction(0, 0, 1);
@@ -373,7 +373,7 @@ final class OperationsTest extends TestCase
         $this->assertTrue($r2->equals($r1));
     }
 
-    public function testCompare8()
+    public function testCompare8(): void
     {
         $r1 = Rational::fromWholeAndFraction(0, 1, 3);
         $r2 = Rational::fromWholeAndFraction(0, 1, 3);
@@ -383,7 +383,7 @@ final class OperationsTest extends TestCase
         $this->assertTrue($r2->equals($r1));
     }
 
-    public function testCompare9()
+    public function testCompare9(): void
     {
         $r1 = Rational::fromWholeAndFraction(9, 5, 7);
         $r2 = Rational::fromWholeAndFraction(9, 5, 7);
@@ -393,7 +393,7 @@ final class OperationsTest extends TestCase
         $this->assertTrue($r2->equals($r1));
     }
 
-    public function testCompare10()
+    public function testCompare10(): void
     {
         $r1 = Rational::fromWholeAndFraction(-4, -2, 5);
         $r2 = Rational::fromWholeAndFraction(-4, -2, 5);

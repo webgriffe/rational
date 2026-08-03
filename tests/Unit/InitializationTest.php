@@ -9,118 +9,118 @@ use Webgriffe\Rational\Rational;
 
 final class InitializationTest extends TestCase
 {
-    public function testInitializeZeroInteger()
+    public function testInitializeZeroInteger(): void
     {
         $q = Rational::fromWhole(0);
         $this->assertEquals(0, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testInitializePositiveInteger()
+    public function testInitializePositiveInteger(): void
     {
         $q = Rational::fromWhole(5);
         $this->assertEquals(5, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaInteger()
+    public function testInitializeNegativaInteger(): void
     {
         $q = Rational::fromWhole(-5);
         $this->assertEquals(-5, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testZeroDenominatorThrowsError()
+    public function testZeroDenominatorThrowsError(): void
     {
         $this->expectException(\DivisionByZeroError::class);
         Rational::fromFraction(3, 0);
     }
 
-    public function testInitializeZeroFraction()
+    public function testInitializeZeroFraction(): void
     {
         $q = Rational::fromFraction(0, 1);
         $this->assertEquals(0, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testInitializePositiveFraction()
+    public function testInitializePositiveFraction(): void
     {
         $q = Rational::fromFraction(2, 3);
         $this->assertEquals(0, $q->getWholePart());
         $this->assertEquals([2, 3], $q->getFractionPart());
     }
 
-    public function testInitializePositiveApparentFraction()
+    public function testInitializePositiveApparentFraction(): void
     {
         $q = Rational::fromFraction(9, 3);
         $this->assertEquals(3, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testInitializePositiveImproperFraction()
+    public function testInitializePositiveImproperFraction(): void
     {
         $q = Rational::fromFraction(9, 4);
         $this->assertEquals(2, $q->getWholePart());
         $this->assertEquals([1, 4], $q->getFractionPart());
     }
 
-    public function testInitializePositiveImproperSimplifiableFraction()
+    public function testInitializePositiveImproperSimplifiableFraction(): void
     {
         $q = Rational::fromFraction(18, 8);
         $this->assertEquals(2, $q->getWholePart());
         $this->assertEquals([1, 4], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaFraction()
+    public function testInitializeNegativaFraction(): void
     {
         $q = Rational::fromFraction(-2, 3);
         $this->assertEquals(0, $q->getWholePart());
         $this->assertEquals([-2, 3], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaApparentFraction()
+    public function testInitializeNegativaApparentFraction(): void
     {
         $q = Rational::fromFraction(-9, 3);
         $this->assertEquals(-3, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaImproperFraction()
+    public function testInitializeNegativaImproperFraction(): void
     {
         $q = Rational::fromFraction(-9, 4);
         $this->assertEquals(-2, $q->getWholePart());
         $this->assertEquals([-1, 4], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaImproperSimplifiableFraction()
+    public function testInitializeNegativaImproperSimplifiableFraction(): void
     {
         $q = Rational::fromFraction(-18, 8);
         $this->assertEquals(-2, $q->getWholePart());
         $this->assertEquals([-1, 4], $q->getFractionPart());
     }
 
-    public function testNegativeDenominatorIsNotAllowed()
+    public function testNegativeDenominatorIsNotAllowed(): void
     {
         $q = Rational::fromFraction(8, -3);
         $this->assertEquals(-2, $q->getWholePart());
         $this->assertEquals([-2, 3], $q->getFractionPart());
     }
 
-    public function testCreateFromWholeAndFractionWithDisagreeingSigns1()
+    public function testCreateFromWholeAndFractionWithDisagreeingSigns1(): void
     {
         $q = Rational::fromWholeAndFraction(-2, 2, 3);
         $this->assertEquals(-1, $q->getWholePart());
         $this->assertEquals([-1, 3], $q->getFractionPart());
     }
 
-    public function testCreateFromWholeAndFractionWithDisagreeingSigns2()
+    public function testCreateFromWholeAndFractionWithDisagreeingSigns2(): void
     {
         $q = Rational::fromWholeAndFraction(3, -5, 8);
         $this->assertEquals(2, $q->getWholePart());
         $this->assertEquals([3, 8], $q->getFractionPart());
     }
 
-    public function testExtend()
+    public function testExtend(): void
     {
         //Define a class that extends Rational
         $s = $this->getMockBuilder(Rational::class)->onlyMethods([])->disableOriginalConstructor()->getMock();

@@ -291,6 +291,62 @@ class Rational
     }
 
     /**
+     * Returns a Rational containing a value that can be represented with at most $decimal decimal places.
+     * Such value is obtained by rounding down toward negative infinity.
+     *
+     * @param int $decimals
+     */
+    public function floor(int $decimals = 0): static
+    {
+        return $this->doRound($decimals, self::TO_DECIMAL_FLOOR);
+    }
+
+    /**
+     * Returns a Rational containing a value that can be represented with at most $decimal decimal places.
+     * Such value is obtained by rounding up toward positive infinity.
+     *
+     * @param int $decimals
+     */
+    public function ceil(int $decimals = 0): static
+    {
+        return $this->doRound($decimals, self::TO_DECIMAL_CEIL);
+    }
+
+    /**
+     * Returns a Rational containing a value that can be represented with at most $decimal decimal places.
+     * Such value is obtained by rounding toward the nearest valid value.
+     *
+     * @param int $decimals
+     * @param int $mode The algorithm to use for rounding if the value cannot be exactly represented with the
+     *                        specified number of decimals. Can be on of:
+     *                        TO_DECIMAL_ROUND_HALF_UP Performs standard rounding. If the value is exactly halfway
+     *                                                 between two admissible values in the result (such as 2.75 when
+     *                                                 only one decimal place is requested), then it is rounded away
+     *                                                 from zero. @see round() with PHP_ROUND_HALF_UP
+     *                        TO_DECIMAL_ROUND_HALF_DOWN Performs standard rounding. If the value is exactly halfway
+     *                                                   between two admissible values in the result (such as 2.75 when
+     *                                                   only one decimal place is requested), then it is rounded toward
+     *                                                   zero. @see round() with PHP_ROUND_HALF_DOWN
+     */
+    public function round(int $decimals = 0, int $mode = PHP_ROUND_HALF_UP): static
+    {
+        switch ($mode) {
+            case PHP_ROUND_HALF_UP:
+                $algorithm = self::TO_DECIMAL_ROUND_HALF_UP;
+
+                break;
+            case PHP_ROUND_HALF_DOWN:
+                $algorithm = self::TO_DECIMAL_ROUND_HALF_DOWN;
+
+                break;
+            default:
+                throw new \InvalidArgumentException('Invalid rounding mode requested');
+        }
+
+        return $this->doRound($decimals, $algorithm);
+    }
+
+    /**
      * If you are SURE that the value is an integer, you can use this method to convert the rational to a native PHP
      * integer.
      */
@@ -335,89 +391,49 @@ class Rational
             throw new \InvalidArgumentException('The minimum number of decimals cannot be larger than the maximum number of decimals');
         }
 
-        //Calculate the value of the rational after multiplying both the whole part and the numerator by 10^$maxDecimals
-        //This has the effect of shifting the decimal separator right by $maxDecimals digits
-        $scaledNumerator = gmp_mul(
-            gmp_add(
-                gmp_mul($this->whole, $this->den),
-                $this->num
-            ),
-            gmp_pow(10, $maxDecimals)
+        //Find the value that can be represented with at most $maxDecimals decimal digits closest to the original value
+        //with the specified rounding method
+        $valueWithAtMostMaxDecimals = $this->doRound($maxDecimals, $algorithm);
+
+        //Should we add the - sign? Be sure to check the value obtained after rounding, as a non-zero value may be
+        //rounded to 0 and thus the sign may change.
+        $sign = $valueWithAtMostMaxDecimals->isNegative() ? '-' : '';
+
+        //Prepare the whole part string. Make sure not to add the sign here, as it is wrong to determine it while only
+        //looking at the whole part. For example, for the number -0.3 the whole part would be 0 but the overall sign is
+        //negative
+        $wholePartString = gmp_strval(gmp_abs($valueWithAtMostMaxDecimals->whole));
+
+        //Extract the raw decimal part. Since we know that the decimal part can be represented with at most $maxDecimals
+        //digits, multiply the numerator by 10^$maxDecimals so that, if we divide it by the denominator, the result will
+        //be an integer
+        [$decimalPart, $remainder] = gmp_div_qr(
+            gmp_mul($valueWithAtMostMaxDecimals->num, gmp_pow(10, $maxDecimals)),
+            $valueWithAtMostMaxDecimals->den
         );
 
-        //Round the result as requested
-        switch ($algorithm) {
-            case self::TO_DECIMAL_CEIL:
-                $rounded = gmp_div_q($scaledNumerator, $this->den, GMP_ROUND_PLUSINF);
+        //The above division should always yield an exact quotient, so the remainder should always be 0. Check that
+        Assert::eq(0, gmp_cmp(0, $remainder));
 
-                break;
-            case self::TO_DECIMAL_FLOOR:
-                $rounded = gmp_div_q($scaledNumerator, $this->den, GMP_ROUND_MINUSINF);
+        //Convert the decimal part to a string
+        $decimalPartString = gmp_strval(gmp_abs($decimalPart));
 
-                break;
-            case self::TO_DECIMAL_ROUND_HALF_UP:
-            case self::TO_DECIMAL_ROUND_HALF_DOWN:
-                [$rounded, $remainder] = gmp_div_qr($scaledNumerator, $this->den);
+        //Now $decimalPartString is a string containing the decimal part represented as a string.
+        //Notice that if the value is very small (such as 0.0001234), the decimal part string may need to be left-padded
+        //with zeros all the way to the decimal separator.
+        $decimalPartString = str_pad($decimalPartString, $maxDecimals, '0', STR_PAD_LEFT);
 
-                //Take the remainder, make it positive, double it and compare it to the denominator.
-                //It's equivalent to checking if it is less than or more than halfway to the next number.
-                //The final <=> operator is used because the result of gmp_cmp() is not guaranteed to be exactly -1 or
-                //1, but may be any positive or negative number
-                switch (gmp_cmp(gmp_mul(gmp_abs($remainder), 2), $this->den) <=> 0) {
-                    case -1:
-                        //We're less than halfway to the next number. Round toward zero.
-                        break;
-                    case 0:
-                        //We're exactly halfway to the next number. Round according to the algorithm
-                        if ($algorithm === self::TO_DECIMAL_ROUND_HALF_DOWN) {
-                            break;
-                        }
+        //Now clean up the decimal part. Remove all trailing zeros (if any), then add back as many as necessary to meet
+        //the minimum number of decimals requested
+        $decimalPartString = str_pad(rtrim($decimalPartString, '0'), $minDecimals, '0');
 
-                        //Intentional fallthrough
-                    case 1:
-                        //We're more than halfway to the next number. Round away from zero.
-                        $rounded = gmp_add($rounded, gmp_sign($scaledNumerator));
-
-                        break;
-                }
-
-                break;
-            default:
-                throw new \InvalidArgumentException('Invalid rounding algorithm');
+        //After all this, if there is a decimal part string then prepend the decimal separator
+        if (strlen($decimalPartString) > 0) {
+            $decimalPartString = '.' . $decimalPartString;
         }
 
-        //Convert the result to a string, ignoring the sign. That will be added back later
-        $result = gmp_strval(gmp_abs($rounded));
-
-        if ($maxDecimals > 0) {
-            //Now $result is a number containing the whole part and the decimal part, the latter ending at the maximum
-            //number of decimals requested.
-            //Start by extracting the last $maxDecimals digits. Notice that if the value is very small (such as
-            //0.0001234) and only a few decimal places are requested, the extracted decimal part may need to be
-            //left-padded with zeros all the way to the decimal separator.
-            $decimalPart = str_pad(substr($result, -$maxDecimals), $maxDecimals, '0', STR_PAD_LEFT);
-
-            //Now clean up the decimal part. Remove all trailing zeros, then add back as many as necessary to meet the
-            //minimum number of decimals requested
-            $decimalPart = str_pad(rtrim($decimalPart, '0'), $minDecimals, '0');
-
-            //Extract the whole part, if any. If there is no whole part, it means that the value is something like
-            //0.0001234, so put a single zero in the integer part
-            $result = str_pad(substr($result, 0, -$maxDecimals), 1, '0');
-
-            //Combine the integer and decimal parts using . as a separator
-            if ($decimalPart !== '') {
-                $result .= '.' . $decimalPart;
-            }
-        }
-
-        //Add the sign, if necessary. Notice that the rounding may make the sign disappear, so we cannot rely on the
-        //sign of the initial value
-        if (gmp_cmp($rounded, 0) < 0) {
-            $result = '-' . $result;
-        }
-
-        return $result;
+        //Put it all together
+        return $sign . $wholePartString . $decimalPartString;
     }
 
     public function formatByNumberFormatter(NumberFormatter $formatter, int $type = NumberFormatter::TYPE_DEFAULT): string
@@ -468,6 +484,62 @@ class Rational
         }
 
         return $string;
+    }
+
+    private function doRound(int $maxDecimals, int $algorithm): static
+    {
+        if ($maxDecimals < 0) {
+            throw new \InvalidArgumentException('The number of decimals cannot be negative');
+        }
+
+        $numeratorSign = gmp_sign($this->num);
+        if (0 === $numeratorSign) {
+            // This is an integer. Nothing to do.
+            return new static($this->whole, $this->num, $this->den);
+        }
+
+        $scalingFactor = gmp_pow(10, $maxDecimals);
+        [$rounded, $remainder] = gmp_div_qr(gmp_mul($this->num, $scalingFactor), $this->den);
+
+        if (0 !== gmp_sign($remainder)) {
+            switch ($algorithm) {
+                case self::TO_DECIMAL_FLOOR:
+                    if ($numeratorSign < 0) {
+                        $rounded = gmp_add($rounded, $numeratorSign);
+                    }
+
+                    break;
+                case self::TO_DECIMAL_CEIL:
+                    if ($numeratorSign > 0) {
+                        $rounded = gmp_add($rounded, $numeratorSign);
+                    }
+
+                    break;
+                case self::TO_DECIMAL_ROUND_HALF_DOWN:
+                case self::TO_DECIMAL_ROUND_HALF_UP:
+                    switch (gmp_cmp(gmp_mul(gmp_abs($remainder), 2), $this->den) <=> 0) {
+                        case -1:
+                            //We're less than halfway to the next number. Round toward zero.
+                            break 2;
+                        case 0:
+                            //We're exactly halfway to the next number. Round according to the algorithm
+                            if ($algorithm === self::TO_DECIMAL_ROUND_HALF_DOWN) {
+                                break 2;
+                            }
+
+                        //Intentional fallthrough
+                        case 1:
+                            //We're more than halfway to the next number. Round away from zero.
+                            $rounded = gmp_add($rounded, $numeratorSign);
+
+                            break 2;
+                    }
+            }
+        }
+
+        //The above operations may have changed to fractional part so that it is now an apparent or improper fraction.
+        //The following calls takes care of that, updating the whole part of necessary while fixing the fraction
+        return self::normalizeAllAndCreate($this->whole, $rounded, $scalingFactor);
     }
 
     /**
