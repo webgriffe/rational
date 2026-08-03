@@ -23,7 +23,7 @@ final class InitializationTest extends TestCase
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaInteger(): void
+    public function testInitializeNegativeInteger(): void
     {
         $q = Rational::fromWhole(-5);
         $this->assertEquals(-5, $q->getWholePart());
@@ -71,28 +71,28 @@ final class InitializationTest extends TestCase
         $this->assertEquals([1, 4], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaFraction(): void
+    public function testInitializeNegativeFraction(): void
     {
         $q = Rational::fromFraction(-2, 3);
         $this->assertEquals(0, $q->getWholePart());
         $this->assertEquals([-2, 3], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaApparentFraction(): void
+    public function testInitializeNegativeApparentFraction(): void
     {
         $q = Rational::fromFraction(-9, 3);
         $this->assertEquals(-3, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaImproperFraction(): void
+    public function testInitializeNegativeImproperFraction(): void
     {
         $q = Rational::fromFraction(-9, 4);
         $this->assertEquals(-2, $q->getWholePart());
         $this->assertEquals([-1, 4], $q->getFractionPart());
     }
 
-    public function testInitializeNegativaImproperSimplifiableFraction(): void
+    public function testInitializeNegativeImproperSimplifiableFraction(): void
     {
         $q = Rational::fromFraction(-18, 8);
         $this->assertEquals(-2, $q->getWholePart());
@@ -123,10 +123,10 @@ final class InitializationTest extends TestCase
     public function testExtend(): void
     {
         //Define a class that extends Rational
-        $s = $this->getMockBuilder(Rational::class)->onlyMethods([])->disableOriginalConstructor()->getMock();
+        //$s = $this->getMockBuilder(Rational::class)->onlyMethods([])->disableOriginalConstructor()->getMock();
 
         //Use one of the static methods to get an instance of that class
-        $c = $s::one();
+        $c = ExtendingClass::one();
 
         //Do an operation on that class that extends Rational
         $one = Rational::one();
