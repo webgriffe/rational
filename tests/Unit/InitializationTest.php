@@ -14,6 +14,8 @@ final class InitializationTest extends TestCase
         $q = Rational::fromWhole(0);
         $this->assertEquals(0, $q->getWholePart());
         $this->assertEquals([0, 1], $q->getFractionPart());
+
+        $this->fail('Make the CI build fail');
     }
 
     public function testInitializePositiveInteger(): void
