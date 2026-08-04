@@ -35,7 +35,7 @@ class ReadmeTest extends TestCase
 
         $this->assertEquals('0.903', $r11->toDecimalString(3));
 
-        $this->assertEquals('0.90', $r11->toDecimalString(2, 2));
+        $this->assertEquals('0.90', $r11->round(2)->toDecimalString(2, 2));
 
         $r12 = $r11->sub($r10);
 

@@ -90,8 +90,9 @@ $r11 = $r10->add($r1);
 //Prints 0.903
 echo $r11->toDecimalString(3);
 
-//Forces 2 decimals and prints 0.90. Useful when dealing with prices
-echo $r11->toDecimalString(2, 2);
+//Round to a value that can be represented with at most 2 decimals, then print it forcing exactly 2 decimals to print 0.90.
+//Useful when dealing with prices
+echo $r11->round(2)->toDecimalString(2, 2);
 
 //$r12 = $r11 - $r10: 167/185 - (-18/185)
 //= 167/185 + 18/185
