@@ -11,7 +11,7 @@ Calculations are performed using the GMP extension for arbitrary precision integ
 
 At the end of each operation, after all simplification and normalization steps, if the final results still do not fit into PHP's standard `integer` type, then an overflow exception is generated.
 
-This library is very similar to https://github.com/markrogoyski/math-php/blob/master/src/Number/Rational.php, with the main difference being that this implementation uses the GMP extension internally to ensure that no overflow issues can arise with the intermediate computation results.
+This library is very similar to https://github.com/markrogoyski/math-php/blob/master/src/Number/Rational.php, with the main difference being that this implementation uses the GMP extension internally to ensure that no overflow issues can arise with the intermediate computation results. In addition, this implementation offers floor(), ceil() and round() methods that allows one to round a Rational to a value that can be represented with the specified maximum number of decimal digits. These can be useful when dealing with things such as money, where payment providers cannot handle payments of like 4⅓€
 
 ## Setup
 Install the library using Composer:
