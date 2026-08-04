@@ -1,7 +1,7 @@
 # Rational - A simple rational number implementation
 
 ## Features
-This library implements a numeric data type that represents a rational number, that is a number that can be represented as the division of two integer numbers. This includes periodic numbers (such as 0.333333..., which can be easily represented as 1/3) and those numbers that cannot be represented exactly by a floating point type (such as 0.1, which is a periodic number in binary representation, but which can be easily represented by the fraction 1/10).
+This library implements a numeric data type that represents a rational number, that is a number that can be represented as the division of two integer numbers. This includes periodic numbers (such as 0.333333..., which can be easily and exactly represented as 1/3) and those numbers that cannot be represented exactly by a floating point type (such as 0.1, which is a periodic number in binary representation, but which can be represented by the fraction 1/10).
 
 In order to reduce the possibility of large values triggering overflow issues, an integer "whole" part is added to the fraction. This means that values are stored as mixed numbers of the form `a + b/c`, where a, b and c are all integers.
 
@@ -9,22 +9,13 @@ Calculations are performed using the GMP extension for arbitrary precision integ
 
 At the end of each operation, after all simplification and normalization steps, if the final results still do not fit into PHP's standard `integer` type, then an overflow exception is generated.
 
-This library is very similar to https://github.com/markrogoyski/math-php/blob/master/src/Number/Rational.php, with the main exception being that this implementation uses the GMP extension internally to ensure that no overflow issues can arise with the intermediate computation results.
+This library is very similar to https://github.com/markrogoyski/math-php/blob/master/src/Number/Rational.php, with the main difference being that this implementation uses the GMP extension internally to ensure that no overflow issues can arise with the intermediate computation results.
 
 ## Setup
-Add the library to your `composer.json` file in your project:
-```
-{
-  "require": {
-      "webgriffe/rational": "^2.0"
-  }
-}
-```
-
-Use composer to install the library:
+Install the library using Composer:
 
 ```
-$ php composer.phar install
+$ php composer.phar require webgriffe/rational
 ```
 
 Composer will install the library inside your vendor folder. If you don't already use Composer in your project, you may need to explicitly include its autoload file in order to allow PHP to find the library class(es):
@@ -39,23 +30,23 @@ require_once __DIR__ . '/vendor/autoload.php';
 ## Usage
 Since floating point number are inherently inaccurate, it was deliberately decided NOT to provide a way to initialize a rational number from a float. Likewise, no method is provided to convert a rational to a float for the same reason.
 
-Creating rational numbers is possible starting from integers or from the various parts of the rational number.
+Creating rational numbers is possible starting from integers or from the various components of the rational number.
 ```php
 use Webgriffe\Rational;
 
-//Creates a zero value
+//Creates a Rational with the value zero
 $r0 = Rational::zero();
 
-//Creates a one value
+//Creates a Rational with the value one
 $r1 = Rational::one();
 
-//Creates a whole number
+//Creates a Rational with an integer value
 $r2 = Rational::fromWhole(-2);
 
-//Creates a variable that stores exactly ⅔ (two thirds), roughly 0.666666...
+//Creates a Rational that stores exactly ⅔ (two thirds), roughly 0.666666...
 $r3 = Rational::fromFraction(2, 3);
 
-//Creates a variable that stores exactly 4 + ⅑ (one ninth), roughly 7.111111...
+//Creates a Rational that stores exactly 4 + ⅑ (one ninth), roughly 7.111111...
 $r4 = Rational::fromWholeAndFraction(4, 1, 9);
 
 //Adds $r1 and $r2 so that $r5 equals -1
@@ -94,11 +85,11 @@ $r10 = $r9->recip();
 //= 167/185
 $r11 = $r10->add($r1);
 
-//Prints 0,903
-echo $r11->format(3, 0, ',', '');
+//Prints 0.903
+echo $r11->toDecimalString(3);
 
 //Forces 2 decimals and prints 0.90. Useful when dealing with prices
-echo $r11->format(2, 2, '.', '');
+echo $r11->toDecimalString(2, 2);
 
 //$r12 = $r11 - $r10: 167/185 - (-18/185)
 //= 167/185 + 18/185
@@ -138,20 +129,36 @@ class Money {
     }
 
     public function add(self $other): static {
-        return new static($this->value->add($other->value));
+        if ($other->currency !== $this->currency) {
+            //Error
+        }
+
+        return new static($this->value->add($other->value), $this->currency);
+    }
+    
+    public function mul(Rational $other): static {
+        return new static($this->value->mul($other), $this->currency);
+    }
+    
+    public function div(self $other): Rational {
+        if ($other->currency !== $this->currency) {
+            //Error
+        }
+
+        return $this->value->div($other->value);
     }
     
     ...
 }
 ```
 
-This has the benefit that one can control precisely what operations are allowed and what are not. For example, for a class that represents amounts of money, the reciprocal operation may not make much sense. Likewise, multiplying an amount of money by another amount of money may not be sensible. while division might make sense, but its result would not be a money object, it would be a plain `Rational` object.
+This has the benefit that one can control precisely what operations are allowed and what are not. For example, for a class that represents amounts of money, the reciprocal operation may not make much sense. Likewise, multiplying an amount of money by another amount of money may not be sensible, one can multiply an amount of money by a pure number. Division may make sense, but its result would not be a money object, it would be a plain `Rational` object.
 
 The drawback is that one has to manually redefine all the desired arithmetic operations to work on the contained `Rational` value.
 
 ## Internal working
 The library stores all components of the rational number as PHP integers. This is to make it easier to store these values to databases and other media where storing arbitrary-length integers may be problematic.
-Intermediate values are handled through the PHP GMP library in order to avoid overflow issues until the final results are computed. If, however, the final result of each operation exceeds the range of PHP integers, the library reports an overflow error.
+Intermediate values are handled through the PHP GMP library in order to avoid overflow issues until the final results are computed. So, for example, if one multiplies two large fractions, as long as the result after simplification can fit into standard PHP integers then no overflow will occur. If, however, the final result of a call to any Rational method cannot be represented via PHP integers, the library reports an overflow error.
 
 Immediately after creation and after every operation, each value is normalized. The purpose of this is to reduce the magnitude of the values stored internally and to make it easier to compare rational numbers and to extract other useful information.
 
