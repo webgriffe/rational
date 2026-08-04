@@ -1,3 +1,5 @@
+[![Continuous Integration](https://github.com/webgriffe/rational/actions/workflows/ci.yml/badge.svg)](https://github.com/webgriffe/rational/actions/workflows/ci.yml)
+
 # Rational - A simple rational number implementation
 
 ## Features
