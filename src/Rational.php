@@ -212,9 +212,9 @@ class Rational
     }
 
     /**
+     * @throws DivisionByZeroError
      * @throws OverflowException
      * @throws UnderflowException
-     * @throws DivisionByZeroError
      */
     public function div(self $other): static
     {
@@ -245,8 +245,9 @@ class Rational
     }
 
     /**
-     * @throws OverflowException
      * @throws DivisionByZeroError
+     * @throws OverflowException
+     * @throws UnderflowException
      */
     public function recip(): static
     {
@@ -316,17 +317,18 @@ class Rational
      * Returns a Rational containing a value that can be represented with at most $decimal decimal places.
      * Such value is obtained by rounding toward the nearest valid value.
      *
-     * @param int $decimals
-     * @param int $mode The algorithm to use for rounding if the value cannot be exactly represented with the
-     *                        specified number of decimals. Can be on of:
-     *                        TO_DECIMAL_ROUND_HALF_UP Performs standard rounding. If the value is exactly halfway
-     *                                                 between two admissible values in the result (such as 2.75 when
-     *                                                 only one decimal place is requested), then it is rounded away
-     *                                                 from zero. @see round() with PHP_ROUND_HALF_UP
-     *                        TO_DECIMAL_ROUND_HALF_DOWN Performs standard rounding. If the value is exactly halfway
-     *                                                   between two admissible values in the result (such as 2.75 when
-     *                                                   only one decimal place is requested), then it is rounded toward
-     *                                                   zero. @see round() with PHP_ROUND_HALF_DOWN
+     * @param int $decimals The resulting value must be such that its decimal representation requires at most this
+     *                      number of decimal digits
+     * @param int $mode The algorithm to use for rounding if the value cannot be exactly represented with the specified
+     *                  number of decimals. Can be on of:
+     *                  PHP_ROUND_HALF_UP Performs standard rounding. If the value is exactly halfway between two
+     *                                    admissible values in the result (such as 2.75 when only one decimal place is
+     *                                    requested), then it is rounded away from zero.
+     *                                    @see round() with PHP_ROUND_HALF_UP
+     *                  PHP_ROUND_HALF_DOWN Performs standard rounding. If the value is exactly halfway between two
+     *                                      admissible values in the result (such as 2.75 when only one decimal place
+     *                                      is requested), then it is rounded toward zero.
+     *                                      @see round() with PHP_ROUND_HALF_DOWN
      */
     public function round(int $decimals = 0, int $mode = PHP_ROUND_HALF_UP): static
     {
@@ -347,8 +349,8 @@ class Rational
     }
 
     /**
-     * If you are SURE that the value is an integer, you can use this method to convert the rational to a native PHP
-     * integer.
+     * If you are SURE that the value is an integer (perhaps because a previous call to isInteger() returned true),
+     * you can use this method to convert the rational to a native PHP integer.
      */
     public function toIntExact(): int
     {
@@ -447,45 +449,9 @@ class Rational
     }
 
     /**
-     * @deprecated Use toDecimalString instead. If you need to use a decimal separator other that . just replace the "."
-     *              in the result with whatever character you want.
-     *              If you want to have a thousand separator, split the result into a whole and decimal part, invert the
-     *              whole part, run str_split() on it, implode the result using whatever separator you want as "glue"
-     *              (if the separator is more than one character, invert it too before using it as glue) and finally
-     *              reverse the result string and add back the decimal part.
+     * @throws \InvalidArgumentException
+     * @throws OverflowException
      */
-    public function format(
-        int $maxDecimals,
-        int $minDecimals = 0,
-        string $decimalSeparator = '.',
-        string $thousandsSeparator = ','
-    ): string {
-        $string = $this->toDecimalString($maxDecimals, $minDecimals);
-
-        if ($decimalSeparator !== '.') {
-            $string = str_replace('.', $decimalSeparator, $string);
-        }
-
-        if ($thousandsSeparator !== '') {
-            $quotedDecimalSeparator = preg_quote($decimalSeparator, '/');
-            preg_match("/^(-?)(\d*)({$quotedDecimalSeparator}\d*)?$/", $string, $matches);
-
-            //The decimal part may not be present. In that case, pad the result array with an extra empty string for
-            //that missing part
-            [, $sign, $whole, $decimalWithSeparator] = array_pad($matches, 4, '');
-
-            //We must split this string in groups of 3 characters. However, this split must be done from right to left.
-            //To do so, we reverse the string, split it into 3-char-long chunks, insert the (reversed) separator between
-            //the chunks, combine everything back into one string and reverse the result to get the correct string
-            $whole = strrev(implode(strrev($thousandsSeparator), str_split(strrev($whole), 3)));
-
-            //Finally build the number back by combining all the parts
-            $string = $sign . $whole . $decimalWithSeparator;
-        }
-
-        return $string;
-    }
-
     private function doRound(int $maxDecimals, int $algorithm): static
     {
         if ($maxDecimals < 0) {
@@ -543,8 +509,9 @@ class Rational
     }
 
     /**
-     * @throws OverflowException
      * @throws DivisionByZeroError
+     * @throws OverflowException
+     * @throws UnderflowException
      */
     private static function normalizeAllAndCreate(int|\GMP $whole, int|\GMP $num = 0, int|\GMP $den = 1): self
     {
@@ -568,34 +535,22 @@ class Rational
         return self::createNew($whole, $num, $den);
     }
 
-    private static function extractWholePartFromFraction(int|\GMP& $whole, int|\GMP& $num, int|\GMP& $den): void
+    private static function extractWholePartFromFraction(int|\GMP& $whole, int|\GMP& $num, int|\GMP $den): void
     {
-        //If the fraction is an improper fraction (|num| >= den), then extract the whole part of that and add it to the
-        //actual whole part
-        $additionalWholePart = gmp_div_q($num, $den);
-        $whole = gmp_add($whole, $additionalWholePart);
-        $num = gmp_sub($num, gmp_mul($additionalWholePart, $den));
+        if (gmp_cmp(gmp_abs($num), $den) >= 0) {
+            //If the fraction is an improper fraction (|num| >= den), then extract the whole part of that and add it to
+            //the actual whole part
+            $additionalWholePart = gmp_div_q($num, $den);
+            $whole = gmp_add($whole, $additionalWholePart);
+            $num = gmp_sub($num, gmp_mul($additionalWholePart, $den));
+        }
     }
 
-    /**
-     * @throws DivisionByZeroError
-     */
-    private static function normalizeSigns(int|\GMP& $whole, int|\GMP& $num, int|\GMP& $den): void
+    private static function normalizeSigns(int|\GMP& $whole, int|\GMP& $num, int|\GMP $den): void
     {
-        //The denominator can only be positive. Obviously it cannot be zero.
-        //If it is negative, then change sign to both the numerator and denominator so that the overall value does not
-        //change.
-        if ($den == 0) {
-            throw new DivisionByZeroError();
-        } elseif ($den < 0) {
-            $num = gmp_neg($num);
-            $den = gmp_neg($den);
-        }
-
         //Make sure that the signs of $whole and $num agree.
-        $wholeSign = gmp_cmp($whole, 0);
-        $numSign = gmp_cmp($num, 0);
-        if ($wholeSign * $numSign < 0) {
+        $wholeSign = gmp_sign($whole);
+        if (($wholeSign * gmp_sign($num)) < 0) {
             //Both the whole part and the numerator are non-zero and with different signs.
             //Add (or subtract) 1 from the whole part and transfer that amount to the fraction, by subtracting (or
             //adding) the denominator to the numerator in a way that causes the numerator to switch sign.
@@ -615,7 +570,7 @@ class Rational
             $gcd = gmp_gcd($num, $den);
         }
 
-        if ($gcd > 1) {
+        if (gmp_cmp($gcd, 1) > 0) {
             $num = gmp_div_q($num, $gcd);
             $den = gmp_div_q($den, $gcd);
         }

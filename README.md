@@ -3,7 +3,7 @@
 # Rational - A simple rational number implementation
 
 ## Features
-This library implements a numeric data type that represents a rational number, that is a number that can be represented as the division of two integer numbers. This includes periodic numbers (such as 0.333333..., which can be easily and exactly represented as 1/3) and those numbers that cannot be represented exactly by a floating point type (such as 0.1, which is a periodic number in binary representation, but which can be represented by the fraction 1/10).
+This library implements a numeric data type that represents a rational number, that is a number that can be exactly represented as the division of two integer numbers. This includes periodic numbers (such as 0.333333..., which can be exactly represented as ⅓) and those numbers that cannot be represented exactly by a floating point type (such as 0.1, which is a periodic number in binary representation, but which can be represented by the fraction ⅒).
 
 In order to reduce the possibility of large values triggering overflow issues, an integer "whole" part is added to the fraction. This means that values are stored as mixed numbers of the form `a + b/c`, where a, b and c are all integers.
 
@@ -20,19 +20,19 @@ Install the library using Composer:
 $ php composer.phar require webgriffe/rational
 ```
 
-Composer will install the library inside your vendor folder. If you don't already use Composer in your project, you may need to explicitly include its autoload file in order to allow PHP to find the library class(es):
+Composer will install the library in your vendor folder. If you don't already use Composer in your project, you may need to explicitly include its autoload file in order to allow PHP to find the library class(es):
 
 ```
 require_once __DIR__ . '/vendor/autoload.php';
 ```
 
 ## Minimum Requirements
-* PHP 8.1 with the GMP extension installed
+* PHP 8.2 or later, with the GMP extension installed
 
 ## Usage
 Since floating point number are inherently inaccurate, it was deliberately decided NOT to provide a way to initialize a rational number from a float. Likewise, no method is provided to convert a rational to a float for the same reason.
 
-Creating rational numbers is possible starting from integers or from the various components of the rational number.
+Creating rational numbers is possible starting from integers or from the various components of the rational number:
 ```php
 use Webgriffe\Rational;
 
@@ -159,6 +159,16 @@ This has the benefit that one can control precisely what operations are allowed 
 
 The drawback is that one has to manually redefine all the desired arithmetic operations to work on the contained `Rational` value.
 
+### Persistence
+Many applications have a need to persist values to a database or some other storage system. To facilitate this, a trait is provided, `RationalSerializerTrait`. It provides methods to serialize and deserialize Rational objects into strings, which can then be easily stored in a database. The trait is designed to be used with [Doctrine custom data types](https://www.doctrine-project.org/projects/doctrine-orm/en/3.6/cookbook/custom-mapping-types.html), but it can be adapted to other storage engines.
+
+## Errors
+### Overflow
+At the end of every operation the library converts the intermediate GMP values back to integers. If these values are too large or too small to fit into an integer, a OverflowException is thrown. It is the user's responsibility to catch the exception and act accordingly.
+
+### Underflow
+This error can happen if the numerator and/or denominator of the fraction part become too large to fit into regular PHP integers. In this case it is not possible to represent the result of the operation exactly, but one may decide to accept an approximation. Therefore, when an underflow is detected, the library reports the issue and provides the representable value that is closest to the exact result. The user of the library can then decide whether to use that value to continue with the calculation or to stop if no approximation is acceptable.
+
 ## Internal working
 The library stores all components of the rational number as PHP integers. This is to make it easier to store these values to databases and other media where storing arbitrary-length integers may be problematic.
 Intermediate values are handled through the PHP GMP library in order to avoid overflow issues until the final results are computed. So, for example, if one multiplies two large fractions, as long as the result after simplification can fit into standard PHP integers then no overflow will occur. If, however, the final result of a call to any Rational method cannot be represented via PHP integers, the library reports an overflow error.
@@ -166,9 +176,6 @@ Intermediate values are handled through the PHP GMP library in order to avoid ov
 Immediately after creation and after every operation, each value is normalized. The purpose of this is to reduce the magnitude of the values stored internally and to make it easier to compare rational numbers and to extract other useful information.
 
 In the context of this library which stores values as `a + b/c`, a normalized value is one where `c > 0`, where `a * b >= 0` (i.e. they do not disagree in sign, though one or both can be zero), where `GCD(|b|, c) == 1` (i.e. the fraction `b/c` is simplified) and `|a| < b` (i.e. it is a proper fraction).
-
-## Overflow
-At the end of every operation the library converts the intermediate GMP values back to integers. If these values are too large or too small to fit into an integer, a OverflowException is thrown. It is the user's responsibility to catch the exception and act accordingly.
 
 ## License
 Webgriffe/Rational is licensed under the MIT License.
