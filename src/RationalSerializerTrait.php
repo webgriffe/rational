@@ -10,9 +10,10 @@ trait RationalSerializerTrait
     //each value (even though the denominator should never be negative) brings the figure to 20 chars per number.
     //Adding the separators that is 20 + 1 + 20 + 1 + 20 = 62 characters, so 64 chars should be more than enough to
     //store the concatenation of the three values
-    private const int MAX_STRING_LENGTH = 64;
+    //@TODO: When support for PHP 8.2 is dropped, add a type to these constants
+    private const MAX_STRING_LENGTH = 64;
 
-    private const string SEPARATOR = ':';
+    private const SEPARATOR = ':';
 
     protected function serialize(?Rational $rational): ?string
     {
