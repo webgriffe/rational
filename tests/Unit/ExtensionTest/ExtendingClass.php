@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Webgriffe\Rational\Tests\Unit;
+namespace Webgriffe\Rational\Tests\Unit\ExtensionTest;
 
 use Webgriffe\Rational\Rational;
 
