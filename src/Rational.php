@@ -517,7 +517,7 @@ class Rational
     {
         //The denominator can only be positive. Obviously it cannot be zero. If it is negative, then change sign to
         //both the numerator and denominator
-        if ($den === 0) {
+        if ($den == 0) {
             throw new DivisionByZeroError();
         } elseif ($den < 0) {
             $num = -$num;
@@ -566,13 +566,16 @@ class Rational
         //Simplify the fraction, if possible
         if (is_int($num) && is_int($den)) {
             $gcd = self::gcdInt($num, $den);
+            if ($gcd > 1) {
+                $num = intdiv($num, $gcd);
+                $den = intdiv($den, $gcd);
+            }
         } else {
             $gcd = gmp_gcd($num, $den);
-        }
-
-        if (gmp_cmp($gcd, 1) > 0) {
-            $num = gmp_div_q($num, $gcd);
-            $den = gmp_div_q($den, $gcd);
+            if (gmp_cmp($gcd, 1) > 0) {
+                $num = gmp_div_q($num, $gcd);
+                $den = gmp_div_q($den, $gcd);
+            }
         }
     }
 
@@ -592,9 +595,13 @@ class Rational
             //meaning a value that is more precise than what can be represented with a fraction of two integers.
             //We want to find another fraction that can be represented by two integers and whose value is as close as
             //possible to the exact value.
-            $approximate = self::getClosestFractionRepresentableByIntegers($num, $den);
+            // Cast to GMP explicitly: $num may still be a native int when GCD==1 left it unchanged in simplify(),
+            // and getClosestFractionRepresentableByIntegers() requires \GMP arguments (strict_types=1).
+            $gmpNum = is_int($num) ? gmp_init($num) : $num;
+            $gmpDen = is_int($den) ? gmp_init($den) : $den;
+            $approximate = self::getClosestFractionRepresentableByIntegers($gmpNum, $gmpDen);
             throw new UnderflowException(
-                $den,
+                $gmpDen,
                 self::fromWholeAndFraction($intWhole, $approximate['num'], $approximate['den']),
             );
         }
@@ -642,14 +649,14 @@ class Rational
 
     /**
      * Given a proper fraction a/b (i.e. one where |a| < |b|), compute the proper fraction c/d where both c and d
-     * are representable by PHP integers (PHP_INT_MIN <= c <= PHP_INT_MAX and PHP_INT_MIN <= d <= PHP_INT_MAX) and
+     * are representable by PHP integers (PHP_INT_MIN <= c <= PHP_INT_MAX and 1 <= d <= PHP_INT_MAX) and
      * whose value is closest to that of the original fraction.
      *
      * @return array{num: int, den: int}
      */
     private static function getClosestFractionRepresentableByIntegers(\GMP $originalNum, \GMP $originalDen): array
     {
-        Assert::true(gmp_cmp($originalDen, 0) > 0);
+        Assert::eq(gmp_sign($originalDen), 1);
         Assert::true(gmp_cmp(gmp_abs($originalNum), $originalDen) < 0);
 
         //We want to compute the continued fraction of the number that caused the underflow and use it to compute the
@@ -673,7 +680,6 @@ class Rational
                 gmp_abs($originalNum),
                 $originalDen,
                 $bestConvergent,
-                gmp_cmp($originalNum, 0) >= 0 ? gmp_init(PHP_INT_MAX) : gmp_abs(gmp_init(PHP_INT_MIN)),
             );
             if (null !== $newBestConvergent) {
                 $bestConvergent = $newBestConvergent;
@@ -706,13 +712,15 @@ class Rational
         $bestDen = 1;
 
         if (null !== $bestConvergent) {
-            //Don't forget about the sign: if the original value was negative, flip thw numerator sign
-            if (gmp_cmp($originalNum, 0) < 0) {
-                $bestConvergent['num'] = gmp_neg($bestConvergent['num']);
-            }
-
             $bestNum = gmp_intval($bestConvergent['num']);
             $bestDen = gmp_intval($bestConvergent['den']);
+
+            //Don't forget about the sign: if the original value was negative, flip thw numerator sign.
+            if (gmp_cmp($originalNum, 0) < 0) {
+                //This is safe because the computed fraction always has positive numerator and denominator, and a
+                //positive PHP integer can always be inverted without causing an overflow.
+                $bestNum = -$bestNum;
+            }
         }
 
         return ['num' => $bestNum, 'den' => $bestDen];
@@ -720,7 +728,7 @@ class Rational
 
     /**
      * This method returns the best convergent for the specified continued fraction that is acceptable.
-     * A fraction is deemed acceptable if the denominator is not greater than $largestAllowedDenominator
+     * A fraction is deemed acceptable if its denominator fits in a PHP integer (i.e. <= PHP_INT_MAX).
      * @see https://en.wikipedia.org/wiki/Simple_continued_fraction#Best_rational_approximations
      *
      * @param \GMP[] $continuedFraction
@@ -733,14 +741,13 @@ class Rational
         \GMP $originalNum,
         \GMP $originalDen,
         ?array $previousBest,
-        \GMP $largestAllowedDenominator,
     ): ?array {
         Assert::notEmpty($continuedFraction);
 
         //Is the full fraction acceptable? If so, that is guaranteed to be the one closest to the original value, at
         //least for this continued fraction. So we can just return it
         $fraction = self::getFraction($continuedFraction);
-        if (self::fractionIsAcceptable($fraction, $largestAllowedDenominator)) {
+        if (self::fractionIsAcceptable($fraction)) {
             return $fraction;
         }
 
@@ -751,7 +758,7 @@ class Rational
         //If the last digit is even, the fraction generated by half its value is only admissible if it is strictly
         //better (i.e. closer to the target value) than the previous one
         $first = gmp_div_q($last, 2, GMP_ROUND_PLUSINF);
-        if (null !== $previousBest && gmp_div_r($last, 2) == 0 && gmp_cmp($last, 2) >= 0) {
+        if (null !== $previousBest && gmp_sign(gmp_div_r($last, 2)) === 0 && gmp_cmp($last, 2) >= 0) {
             $continuedFraction[$lastIndex] = $first;
             $fraction = self::getFraction($continuedFraction);
 
@@ -779,7 +786,7 @@ class Rational
         //Test whether the first fraction is acceptable.
         //If it is not, then it means that no value is acceptable and we are done
         $continuedFraction[$lastIndex] = $first;
-        if (!self::fractionIsAcceptable(self::getFraction($continuedFraction), $largestAllowedDenominator)) {
+        if (!self::fractionIsAcceptable(self::getFraction($continuedFraction))) {
             return null;
         }
 
@@ -793,17 +800,17 @@ class Rational
         //statement) and last value is not acceptable (we tested it at the beginning of this function), we can use a
         //binary search to efficiently reduce the range and then do a linear search for the last few steps.
 
-        //Binary search
-        //The loop invariant is that the $first value always produces a fraction that is acceptable, while the $last
-        //value always produces a fraction that is not acceptable.
-        //We have to find the largest value that produces an acceptable fraction.
+        //Start with a binary search. Then, when the range gets small enough, switch to a standard linear search.
+        //The loop invariant for the binary search phase is that the $first value always produces a fraction that is
+        //acceptable, while the $last value always produces a fraction that is not acceptable.
+        //Our goal is to find the largest value that produces an acceptable fraction.
         while (gmp_cmp(gmp_sub($last, $first), 16) > 0) {
             //We are using arbitrary precision numbers, so we can safely calculate the midpoint by summing the two
             //endpoints and halving, without fearing an overflow. And since we stop before the range gets too small,
             //we do not have to concern with edge cases that arise when the interval gets very small
             $mid = gmp_div_q(gmp_add($first, $last), 2);
             $continuedFraction[$lastIndex] = $mid;
-            if (self::fractionIsAcceptable(self::getFraction($continuedFraction), $largestAllowedDenominator)) {
+            if (self::fractionIsAcceptable(self::getFraction($continuedFraction))) {
                 //The fraction is acceptable, so the upper half of the range is where the best value must be
                 $first = $mid;
             } else {
@@ -814,12 +821,13 @@ class Rational
             Assert::lessThan(gmp_cmp($first, $last), 0);
         }
 
-        //Linear search in the last remaining values.
-        //Search in reverse order, as we are interested in the largest value that produces an acceptable fraction
-        for ($i = $last; gmp_cmp($i, $first) >= 0; $i = gmp_sub($i, 1)) {
+        //Nor the remaining range is small enough, so we can use a linear search to find the value.
+        //Search in reverse order, as we are interested in the largest value that produces an acceptable fraction. Also
+        //we can skip $last as we already know that it produces a fraction that is not acceptable.
+        for ($i = gmp_sub($last, 1); gmp_cmp($i, $first) >= 0; $i = gmp_sub($i, 1)) {
             $continuedFraction[$lastIndex] = $i;
             $fraction = self::getFraction($continuedFraction);
-            if (self::fractionIsAcceptable($fraction, $largestAllowedDenominator)) {
+            if (self::fractionIsAcceptable($fraction)) {
                 return $fraction;
             }
         }
@@ -866,14 +874,14 @@ class Rational
     }
 
     /**
-     * A fraction is deemed acceptable if the denominator is not greater than $largestAllowedDenominator
+     * A fraction is deemed acceptable if its denominator fits in a PHP integer (i.e. <= PHP_INT_MAX).
      *
      * @param array{num: \GMP, den: \GMP} $fraction
      *
      * @return bool
      */
-    private static function fractionIsAcceptable(array $fraction, \GMP $largestAllowedDenominator): bool
+    private static function fractionIsAcceptable(array $fraction): bool
     {
-        return gmp_cmp($fraction['den'], $largestAllowedDenominator) <= 0;
+        return gmp_cmp($fraction['den'], PHP_INT_MAX) <= 0;
     }
 }

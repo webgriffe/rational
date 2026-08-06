@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Webgriffe\Rational\Exception\OverflowException;
 use Webgriffe\Rational\Exception\UnderflowException;
 use Webgriffe\Rational\Rational;
+use DivisionByZeroError;
 
 final class OperationsTest extends TestCase
 {
@@ -401,5 +402,49 @@ final class OperationsTest extends TestCase
         $this->assertEquals(0, $r2->compare($r1));
         $this->assertTrue($r1->equals($r2));
         $this->assertTrue($r2->equals($r1));
+    }
+
+    public function testDivByZeroThrowsDivisionByZeroError(): void
+    {
+        $this->expectException(DivisionByZeroError::class);
+        Rational::fromWhole(5)->div(Rational::zero());
+    }
+
+    public function testDivNegativeByZeroThrowsDivisionByZeroError(): void
+    {
+        $this->expectException(DivisionByZeroError::class);
+        Rational::fromWhole(-3)->div(Rational::zero());
+    }
+
+    public function testRecipOfZeroThrowsDivisionByZeroError(): void
+    {
+        $this->expectException(DivisionByZeroError::class);
+        Rational::zero()->recip();
+    }
+
+    public function testRecipNearPhpIntMaxThrowsUnderflowException(): void
+    {
+        try {
+            Rational::fromWholeAndFraction(1, 1, PHP_INT_MAX)->recip();
+            $this->fail('No exception thrown');
+        } catch (UnderflowException $e) {
+            $this->assertEquals(0, $e->getClosestApproximation()->getWholePart());
+            $this->assertEquals([PHP_INT_MAX - 1, PHP_INT_MAX], $e->getClosestApproximation()->getFractionPart());
+        }
+    }
+
+    public function testAddUnderflowWithNegativeNumeratorValues(): void
+    {
+        $a = Rational::fromWholeAndFraction(-2, -1000000000000000000, 4087722194471772533);
+        $b = Rational::fromWholeAndFraction(-3, -1000000000000000000, 6615500653910192833);
+
+        try {
+            $a->add($b);
+            $this->fail('No exception thrown');
+        } catch (UnderflowException $e) {
+            $closestApproximation = $e->getClosestApproximation();
+            $this->assertEquals(-5, $closestApproximation->getWholePart());
+            $this->assertEquals([-2836454665136119111, 7166471343332811410], $closestApproximation->getFractionPart());
+        }
     }
 }

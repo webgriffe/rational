@@ -32,7 +32,13 @@ trait RationalSerializerTrait
             return null;
         }
 
-        [$whole, $num, $den] = explode($this->getSeparator(), $value);
+        $parts = explode($this->getSeparator(), $value);
+        if (count($parts) !== 3) {
+            throw new \InvalidArgumentException(
+                sprintf('Invalid serialized Rational value: expected format "whole%1$snum%1$sden", got "%2$s"', $this->getSeparator(), $value)
+            );
+        }
+        [$whole, $num, $den] = $parts;
 
         //The serialize() method persists the values of a Rational object, that should be normalized. However we don't
         //know if anyone overrode that method and changed the behavior, or whether anyone did some DB operations
